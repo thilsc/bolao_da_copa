@@ -81,20 +81,141 @@ function initializeMatches() {
       'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croácia': '🇭🇷', 'Gana': '🇬🇭', 'Panamá': '🇵🇦'
     };
 
-    // Grupos OFICIAIS da Copa do Mundo FIFA 2026 (sorteio de dezembro de 2025)
-    const groups = [
-      { name: 'A', teams: ['México', 'Coreia do Sul', 'África do Sul', 'Tchéquia'] },
-      { name: 'B', teams: ['Canadá', 'Suíça', 'Qatar', 'Bósnia e Herzegovina'] },
-      { name: 'C', teams: ['Brasil', 'Marrocos', 'Haiti', 'Escócia'] },
-      { name: 'D', teams: ['Estados Unidos', 'Paraguai', 'Austrália', 'Turquia'] },
-      { name: 'E', teams: ['Alemanha', 'Curaçao', 'Costa do Marfim', 'Equador'] },
-      { name: 'F', teams: ['Holanda', 'Japão', 'Suécia', 'Tunísia'] },
-      { name: 'G', teams: ['Bélgica', 'Egito', 'Irã', 'Nova Zelândia'] },
-      { name: 'H', teams: ['Espanha', 'Cabo Verde', 'Arábia Saudita', 'Uruguai'] },
-      { name: 'I', teams: ['França', 'Senegal', 'Iraque', 'Noruega'] },
-      { name: 'J', teams: ['Argentina', 'Argélia', 'Áustria', 'Jordânia'] },
-      { name: 'K', teams: ['Portugal', 'Congo DR', 'Uzbequistão', 'Colômbia'] },
-      { name: 'L', teams: ['Inglaterra', 'Croácia', 'Gana', 'Panamá'] }
+    // Jogos OFICIAIS da Copa do Mundo FIFA 2026 — confrontos e horários em GMT-3 (Brasília)
+    // Sorteio realizado em dezembro de 2025 | Fonte: FIFA.com
+    // Formato: [grupo, rodada, timeA, timeB, data ISO em GMT-3]
+    const fixtures = [
+      // ── GRUPO A ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo A', 1, 'México',        'África do Sul',       '2026-06-11T16:00:00-03:00'],
+      ['Grupo A', 1, 'Coreia do Sul', 'Tchéquia',            '2026-06-11T23:00:00-03:00'],
+      // Rodada 2
+      ['Grupo A', 2, 'Tchéquia',      'África do Sul',       '2026-06-18T13:00:00-03:00'],
+      ['Grupo A', 2, 'México',        'Coreia do Sul',       '2026-06-18T22:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo A', 3, 'México',        'Tchéquia',            '2026-06-24T22:00:00-03:00'],
+      ['Grupo A', 3, 'Coreia do Sul', 'África do Sul',       '2026-06-24T22:00:00-03:00'],
+
+      // ── GRUPO B ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo B', 1, 'Canadá',              'Bósnia e Herzegovina', '2026-06-12T16:00:00-03:00'],
+      ['Grupo B', 1, 'Qatar',               'Suíça',               '2026-06-13T19:00:00-03:00'],
+      // Rodada 2
+      ['Grupo B', 2, 'Canadá',              'Qatar',               '2026-06-19T19:00:00-03:00'],
+      ['Grupo B', 2, 'Bósnia e Herzegovina','Suíça',               '2026-06-20T16:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo B', 3, 'Suíça',              'Canadá',              '2026-06-25T20:30:00-03:00'],
+      ['Grupo B', 3, 'Bósnia e Herzegovina','Qatar',               '2026-06-25T20:30:00-03:00'],
+
+      // ── GRUPO C ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo C', 1, 'Brasil',   'Marrocos', '2026-06-13T19:00:00-03:00'],
+      ['Grupo C', 1, 'Haiti',    'Escócia',  '2026-06-16T13:00:00-03:00'],
+      // Rodada 2
+      ['Grupo C', 2, 'Brasil',   'Haiti',    '2026-06-19T22:00:00-03:00'],
+      ['Grupo C', 2, 'Marrocos', 'Escócia',  '2026-06-19T16:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo C', 3, 'Brasil',   'Escócia',  '2026-06-24T19:00:00-03:00'],
+      ['Grupo C', 3, 'Marrocos', 'Haiti',    '2026-06-24T19:00:00-03:00'],
+
+      // ── GRUPO D ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo D', 1, 'Estados Unidos', 'Paraguai',  '2026-06-12T22:00:00-03:00'],
+      ['Grupo D', 1, 'Austrália',      'Turquia',   '2026-06-13T22:00:00-03:00'],
+      // Rodada 2
+      ['Grupo D', 2, 'Estados Unidos', 'Austrália', '2026-06-20T13:00:00-03:00'],
+      ['Grupo D', 2, 'Paraguai',       'Turquia',   '2026-06-20T19:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo D', 3, 'Estados Unidos', 'Turquia',   '2026-06-25T22:00:00-03:00'],
+      ['Grupo D', 3, 'Paraguai',       'Austrália', '2026-06-25T22:00:00-03:00'],
+
+      // ── GRUPO E ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo E', 1, 'Alemanha',       'Curaçao',         '2026-06-14T14:00:00-03:00'],
+      ['Grupo E', 1, 'Costa do Marfim','Equador',         '2026-06-14T20:00:00-03:00'],
+      // Rodada 2
+      ['Grupo E', 2, 'Alemanha',       'Costa do Marfim', '2026-06-20T22:00:00-03:00'],
+      ['Grupo E', 2, 'Curaçao',        'Equador',         '2026-06-21T13:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo E', 3, 'Alemanha',       'Equador',         '2026-06-26T16:00:00-03:00'],
+      ['Grupo E', 3, 'Curaçao',        'Costa do Marfim', '2026-06-26T16:00:00-03:00'],
+
+      // ── GRUPO F ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo F', 1, 'Holanda', 'Japão',   '2026-06-14T17:00:00-03:00'],
+      ['Grupo F', 1, 'Suécia',  'Tunísia', '2026-06-14T23:00:00-03:00'],
+      // Rodada 2
+      ['Grupo F', 2, 'Holanda', 'Suécia',  '2026-06-21T19:00:00-03:00'],
+      ['Grupo F', 2, 'Tunísia', 'Japão',   '2026-06-21T01:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo F', 3, 'Holanda', 'Tunísia', '2026-06-26T20:30:00-03:00'],
+      ['Grupo F', 3, 'Japão',   'Suécia',  '2026-06-26T20:30:00-03:00'],
+
+      // ── GRUPO G ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo G', 1, 'Bélgica',       'Egito',        '2026-06-15T16:00:00-03:00'],
+      ['Grupo G', 1, 'Irã',           'Nova Zelândia', '2026-06-15T22:00:00-03:00'],
+      // Rodada 2
+      ['Grupo G', 2, 'Bélgica',       'Irã',          '2026-06-21T16:00:00-03:00'],
+      ['Grupo G', 2, 'Egito',         'Nova Zelândia', '2026-06-22T13:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo G', 3, 'Bélgica',       'Nova Zelândia', '2026-06-26T22:00:00-03:00'],
+      ['Grupo G', 3, 'Egito',         'Irã',           '2026-06-26T22:00:00-03:00'],
+
+      // ── GRUPO H ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo H', 1, 'Espanha',       'Cabo Verde',    '2026-06-15T13:00:00-03:00'],
+      ['Grupo H', 1, 'Arábia Saudita','Uruguai',       '2026-06-15T19:00:00-03:00'],
+      // Rodada 2
+      ['Grupo H', 2, 'Espanha',       'Arábia Saudita','2026-06-21T13:00:00-03:00'],
+      ['Grupo H', 2, 'Cabo Verde',    'Uruguai',       '2026-06-22T19:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo H', 3, 'Espanha',       'Uruguai',       '2026-06-27T13:00:00-03:00'],
+      ['Grupo H', 3, 'Cabo Verde',    'Arábia Saudita','2026-06-27T13:00:00-03:00'],
+
+      // ── GRUPO I ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo I', 1, 'França',   'Senegal', '2026-06-16T19:00:00-03:00'],
+      ['Grupo I', 1, 'Iraque',   'Noruega', '2026-06-16T22:00:00-03:00'],
+      // Rodada 2
+      ['Grupo I', 2, 'França',   'Iraque',  '2026-06-22T16:00:00-03:00'],
+      ['Grupo I', 2, 'Senegal',  'Noruega', '2026-06-22T22:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo I', 3, 'França',   'Noruega', '2026-06-27T16:00:00-03:00'],
+      ['Grupo I', 3, 'Senegal',  'Iraque',  '2026-06-27T16:00:00-03:00'],
+
+      // ── GRUPO J ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo J', 1, 'Argentina', 'Jordânia', '2026-06-17T22:00:00-03:00'],
+      ['Grupo J', 1, 'Argélia',   'Áustria',  '2026-06-17T13:00:00-03:00'],
+      // Rodada 2
+      ['Grupo J', 2, 'Argentina', 'Áustria',  '2026-06-23T22:00:00-03:00'],
+      ['Grupo J', 2, 'Argélia',   'Jordânia', '2026-06-22T22:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo J', 3, 'Argentina', 'Argélia',  '2026-06-27T20:30:00-03:00'],
+      ['Grupo J', 3, 'Áustria',   'Jordânia', '2026-06-27T20:30:00-03:00'],
+
+      // ── GRUPO K ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo K', 1, 'Portugal',   'Congo DR',     '2026-06-17T16:00:00-03:00'],
+      ['Grupo K', 1, 'Colômbia',   'Uzbequistão',  '2026-06-17T19:00:00-03:00'],
+      // Rodada 2
+      ['Grupo K', 2, 'Portugal',   'Uzbequistão',  '2026-06-23T16:00:00-03:00'],
+      ['Grupo K', 2, 'Colômbia',   'Congo DR',     '2026-06-23T13:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo K', 3, 'Portugal',   'Colômbia',     '2026-06-27T22:00:00-03:00'],
+      ['Grupo K', 3, 'Congo DR',   'Uzbequistão',  '2026-06-27T22:00:00-03:00'],
+
+      // ── GRUPO L ──────────────────────────────────────────────────────────────
+      // Rodada 1
+      ['Grupo L', 1, 'Inglaterra', 'Croácia', '2026-06-17T16:00:00-03:00'],
+      ['Grupo L', 1, 'Gana',       'Panamá',  '2026-06-16T16:00:00-03:00'],
+      // Rodada 2
+      ['Grupo L', 2, 'Inglaterra', 'Gana',    '2026-06-23T19:00:00-03:00'],
+      ['Grupo L', 2, 'Croácia',    'Panamá',  '2026-06-23T22:00:00-03:00'],
+      // Rodada 3 (simultâneos)
+      ['Grupo L', 3, 'Inglaterra', 'Panamá',  '2026-06-27T20:30:00-03:00'],
+      ['Grupo L', 3, 'Croácia',    'Gana',    '2026-06-27T20:30:00-03:00'],
     ];
 
     const insertMatch = db.prepare(`
@@ -102,49 +223,11 @@ function initializeMatches() {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
-    let matchId = 1;
-    const baseDate = new Date('2026-06-11T13:00:00-03:00');
-
-    groups.forEach((group, groupIndex) => {
-      const groupTeams = group.teams;
-      
-      // Rodada 1: Time 0 vs Time 1, Time 2 vs Time 3
-      // Rodada 2: Time 0 vs Time 2, Time 1 vs Time 3
-      // Rodada 3: Time 0 vs Time 3, Time 1 vs Time 2
-      
-      const rounds = [
-        [[0, 1], [2, 3]],
-        [[0, 2], [1, 3]],
-        [[0, 3], [1, 2]]
-      ];
-
-      rounds.forEach((round, roundIndex) => {
-        round.forEach(([teamAIndex, teamBIndex], matchIndex) => {
-          const teamA = groupTeams[teamAIndex];
-          const teamB = groupTeams[teamBIndex];
-          
-          // Calcular data e hora (GMT-3)
-          const matchDate = new Date(baseDate.getTime() + 
-            (groupIndex * 3 + roundIndex) * 24 * 60 * 60 * 1000 + 
-            matchIndex * 3 * 60 * 60 * 1000);
-          
-          const dateStr = matchDate.toISOString().replace('Z', '-03:00');
-          
-          insertMatch.run(
-            `Grupo ${group.name}`,
-            roundIndex + 1,
-            teamA,
-            teamB,
-            teams[teamA] || '🏳️',
-            teams[teamB] || '🏳️',
-            dateStr
-          );
-          matchId++;
-        });
-      });
+    fixtures.forEach(([group, round, teamA, teamB, date]) => {
+      insertMatch.run(group, round, teamA, teamB, teams[teamA] || '🏳️', teams[teamB] || '🏳️', date);
     });
 
-    console.log(`${matchId - 1} jogos inicializados com sucesso!`);
+    console.log(`${fixtures.length} jogos inicializados com sucesso!`);
   }
 }
 
