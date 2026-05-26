@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolão Copa 2026</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            color: white;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            padding: 15px 40px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            border-radius: 10px 10px 0 0;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #1e3c72;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 0 10px 10px 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .login-form {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .login-form h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #1e3c72;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: #1e3c72;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #2a5298;
+        }
+
+        .matches-container {
+            margin-top: 20px;
+        }
+
+        .group-section {
+            margin-bottom: 40px;
+        }
+
+        .group-title {
+            background: #1e3c72;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .round-section {
+            margin-bottom: 30px;
+        }
+
+        .round-title {
+            font-size: 1.3rem;
+            color: #1e3c72;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .match-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #1e3c72;
+        }
+
+        .match-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .match-time {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .teams {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+        }
+
+        .team {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .team-a {
+            justify-content: flex-end;
+            text-align: right;
+        }
+
+        .team-b {
+            justify-content: flex-start;
+        }
+
+        .flag {
+            font-size: 1.5rem;
+        }
+
+        .vs {
+            padding: 0 20px;
+            color: #999;
+            font-weight: bold;
+        }
+
+        .prediction-form {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .score-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-input input {
+            width: 60px;
+            padding: 10px;
+            text-align: center;
+            font-size: 1.2rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .result-select {
+            padding: 10px;
+            font-size: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .save-btn {
+            padding: 10px 30px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .save-btn:hover {
+            background: #218838;
+        }
+
+        .save-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .ranking-table th,
+        .ranking-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .ranking-table th {
+            background: #1e3c72;
+            color: white;
+        }
+
+        .ranking-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .rank-1 { background: #ffd700 !important; }
+        .rank-2 { background: #c0c0c0 !important; }
+        .rank-3 { background: #cd7f32 !important; }
+
+        .points-badge {
+            background: #28a745;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .admin-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .admin-section h3 {
+            margin-bottom: 15px;
+            color: #1e3c72;
+        }
+
+        .admin-btn {
+            padding: 12px 25px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .admin-btn:hover {
+            background: #c82333;
+        }
+
+        .status-finished {
+            background: #28a745;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+
+        .status-scheduled {
+            background: #ffc107;
+            color: #333;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+
+        .actual-score {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #1e3c72;
+        }
+
+        .prediction-result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .points-earned {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab-btn {
+                border-radius: 10px;
+            }
+
+            .prediction-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .teams {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .team {
+                justify-content: center !important;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏆 Bolão Copa 2026 🏆</h1>
+            <p>Faça seus palpites e concorra com outros torcedores!</p>
+        </header>
+
+        <!-- Login Form -->
+        <div id="loginSection" class="login-form">
+            <h2>Entrar no Bolão</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="userName">Nome:</label>
+                    <input type="text" id="userName" required>
+                </div>
+                <div class="form-group">
+                    <label for="userEmail">Email:</label>
+                    <input type="email" id="userEmail" required>
+                </div>
+                <button type="submit" class="btn">Entrar</button>
+            </form>
+        </div>
+
+        <!-- Main App -->
+        <div id="mainApp" style="display: none;">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('predictions')">Meus Palpites</button>
+                <button class="tab-btn" onclick="switchTab('ranking')">Ranking</button>
+            </div>
+
+            <!-- Predictions Tab -->
+            <div id="predictionsTab" class="tab-content active">
+                <div id="matchesContainer" class="matches-container">
+                    <!-- Matches will be loaded here -->
+                </div>
+
+                <div class="admin-section">
+                    <h3>⚙️ Área Administrativa</h3>
+                    <p style="margin-bottom: 15px;">Atualize os placares dos jogos finalizados:</p>
+                    <button class="admin-btn" onclick="updateScores()">🔄 Atualizar Placares</button>
+                    <button class="admin-btn" onclick="fetchFromAPI()">🌐 Buscar da API</button>
+                </div>
+            </div>
+
+            <!-- Ranking Tab -->
+            <div id="rankingTab" class="tab-content">
+                <h2 style="margin-bottom: 20px; color: #1e3c72;">📊 Ranking Geral</h2>
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>Posição</th>
+                            <th>Nome</th>
+                            <th>Email</th>
+                            <th>Palpites</th>
+                            <th>Pontos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rankingBody">
+                        <!-- Ranking will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3001/api';
+        let currentUser = null;
+        let allMatches = [];
+        let userPredictions = [];
+
+        // Switch tabs
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if (tabName === 'predictions') {
+                document.querySelector('button[onclick="switchTab(\'predictions\')"]').classList.add('active');
+                document.getElementById('predictionsTab').classList.add('active');
+                loadMatches();
+            } else {
+                document.querySelector('button[onclick="switchTab(\'ranking\')"]').classList.add('active');
+                document.getElementById('rankingTab').classList.add('active');
+                loadRanking();
+            }
+        }
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('userName').value;
+            const email = document.getElementById('userEmail').value;
+
+            try {
+                const response = await fetch(`${API_URL}/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentUser = data;
+                    document.getElementById('loginSection').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'block';
+                    loadMatches();
+                } else {
+                    alert(data.error || 'Erro ao entrar');
+                }
+            } catch (error) {
+                alert('Erro de conexão com o servidor');
+            }
+        });
+
+        // Load matches
+        async function loadMatches() {
+            try {
+                const [matchesRes, predictionsRes] = await Promise.all([
+                    fetch(`${API_URL}/matches`),
+                    fetch(`${API_URL}/users/${currentUser.id}/predictions`)
+                ]);
+
+                allMatches = await matchesRes.json();
+                userPredictions = await predictionsRes.json();
+
+                renderMatches();
+            } catch (error) {
+                console.error('Erro ao carregar jogos:', error);
+            }
+        }
+
+        // Render matches grouped by group and round
+        function renderMatches() {
+            const container = document.getElementById('matchesContainer');
+            const groups = {};
+
+            allMatches.forEach(match => {
+                if (!groups[match.group_name]) {
+                    groups[match.group_name] = {};
+                }
+                if (!groups[match.group_name][match.round]) {
+                    groups[match.group_name][match.round] = [];
+                }
+                groups[match.group_name][match.round].push(match);
+            });
+
+            let html = '';
+
+            Object.keys(groups).sort().forEach(groupName => {
+                html += `<div class="group-section">
+                    <h2 class="group-title">${groupName}</h2>`;
+
+                Object.keys(groups[groupName]).sort().forEach(round => {
+                    html += `<div class="round-section">
+                        <h3 class="round-title">Rodada ${round}</h3>`;
+
+                    groups[groupName][round].forEach(match => {
+                        const prediction = userPredictions.find(p => p.match_id === match.id);
+                        const matchDate = new Date(match.match_date);
+                        const now = new Date();
+                        const oneHourBefore = new Date(matchDate.getTime() - 60 * 60 * 1000);
+                        const isLocked = now >= oneHourBefore;
+
+                        html += `
+                        <div class="match-card">
+                            <div class="match-info">
+                                <span class="match-time">📅 ${formatDate(matchDate)}</span>
+                                <span class="status-${match.status}">${match.status === 'finished' ? 'Finalizado' : 'Agendado'}</span>
+                            </div>
+                            <div class="teams">
+                                <div class="team team-a">
+                                    <span>${match.team_a}</span>
+                                    <span class="flag">${match.team_a_flag}</span>
+                                </div>
+                                <span class="vs">VS</span>
+                                <div class="team team-b">
+                                    <span class="flag">${match.team_b_flag}</span>
+                                    <span>${match.team_b}</span>
+                                </div>
+                            </div>`;
+
+                        if (match.status === 'finished' && match.score_a !== null) {
+                            html += `<div class="actual-score">Placar Final: ${match.score_a} x ${match.score_b}</div>`;
+                        }
+
+                        if (prediction) {
+                            html += `
+                            <div class="prediction-result">
+                                Seu palpite: ${prediction.predicted_score_a !== null ? 
+                                    `${prediction.predicted_score_a} x ${prediction.predicted_score_b}` : 
+                                    prediction.predicted_result === 'A' ? `${match.team_a} vence` :
+                                    prediction.predicted_result === 'B' ? `${match.team_b} vence` : 'Empate'}
+                                ${prediction.points > 0 ? `<span class="points-earned"> (+${prediction.points} pts)</span>` : ''}
+                            </div>`;
+                        }
+
+                        html += `
+                            <div class="prediction-form">
+                                <div class="score-input">
+                                    <input type="number" id="scoreA_${match.id}" min="0" max="20" 
+                                        value="${prediction?.predicted_score_a ?? ''}" 
+                                        placeholder="A" ${isLocked || match.status === 'finished' ? 'disabled' : ''}>
+                                    <span>x</span>
+                                    <input type="number" id="scoreB_${match.id}" min="0" max="20" 
+                                        value="${prediction?.predicted_score_b ?? ''}" 
+                                        placeholder="B" ${isLocked || match.status === 'finished' ? 'disabled' : ''}>
+                                </div>
+                                <select id="result_${match.id}" class="result-select" ${isLocked || match.status === 'finished' ? 'disabled' : ''}>
+                                    <option value="">Ou selecione o resultado</option>
+                                    <option value="A" ${prediction?.predicted_result === 'A' ? 'selected' : ''}>${match.team_a} vence</option>
+                                    <option value="draw" ${prediction?.predicted_result === 'draw' ? 'selected' : ''}>Empate</option>
+                                    <option value="B" ${prediction?.predicted_result === 'B' ? 'selected' : ''}>${match.team_b} vence</option>
+                                </select>
+                                <button class="save-btn" onclick="savePrediction(${match.id})" 
+                                    ${isLocked || match.status === 'finished' ? 'disabled' : ''}>
+                                    ${prediction ? 'Atualizar' : 'Salvar'} Palpite
+                                </button>
+                            </div>
+                        </div>`;
+                    });
+
+                    html += '</div>';
+                });
+
+                html += '</div>';
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Save prediction
+        async function savePrediction(matchId) {
+            const scoreA = document.getElementById(`scoreA_${matchId}`).value;
+            const scoreB = document.getElementById(`scoreB_${matchId}`).value;
+            const result = document.getElementById(`result_${matchId}`).value;
+
+            if (!scoreA && !scoreB && !result) {
+                alert('Preencha o placar ou selecione um resultado');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/predictions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        matchId: matchId,
+                        predictedScoreA: scoreA ? parseInt(scoreA) : null,
+                        predictedScoreB: scoreB ? parseInt(scoreB) : null,
+                        predictedResult: result || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Palpite salvo com sucesso!');
+                    loadMatches();
+                } else {
+                    alert(data.error || 'Erro ao salvar palpite');
+                }
+            } catch (error) {
+                alert('Erro de conexão com o servidor');
+            }
+        }
+
+        // Load ranking
+        async function loadRanking() {
+            try {
+                const response = await fetch(`${API_URL}/ranking`);
+                const ranking = await response.json();
+
+                const tbody = document.getElementById('rankingBody');
+                tbody.innerHTML = '';
+
+                ranking.forEach((user, index) => {
+                    const rowClass = index < 3 ? `rank-${index + 1}` : '';
+                    tbody.innerHTML += `
+                        <tr class="${rowClass}">
+                            <td>#${index + 1}</td>
+                            <td>${user.name}</td>
+                            <td>${user.email}</td>
+                            <td>${user.predictions_count}</td>
+                            <td><span class="points-badge">${user.total_points} pts</span></td>
+                        </tr>
+                    `;
+                });
+            } catch (error) {
+                console.error('Erro ao carregar ranking:', error);
+            }
+        }
+
+        // Update scores manually
+        async function updateScores() {
+            const input = prompt('Digite os IDs dos jogos e placares no formato: id1:scoreA1-scoreB1,id2:scoreA2-scoreB2\nExemplo: 1:2-1,5:3-0');
+            
+            if (!input) return;
+
+            try {
+                const matches = input.split(',').map(item => {
+                    const [id, scores] = item.split(':');
+                    const [scoreA, scoreB] = scores.split('-');
+                    return {
+                        id: parseInt(id),
+                        scoreA: parseInt(scoreA),
+                        scoreB: parseInt(scoreB)
+                    };
+                });
+
+                const response = await fetch(`${API_URL}/matches/update-scores`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matches })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(data.message);
+                    loadMatches();
+                } else {
+                    alert(data.error || 'Erro ao atualizar placares');
+                }
+            } catch (error) {
+                alert('Erro ao processar placares');
+            }
+        }
+
+        // Fetch from API
+        async function fetchFromAPI() {
+            try {
+                const response = await fetch(`${API_URL}/matches/fetch-results`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(data.message);
+                    loadMatches();
+                } else {
+                    alert(data.error || 'Erro ao buscar dados da API');
+                }
+            } catch (error) {
+                alert('Erro de conexão com a API externa');
+            }
+        }
+
+        // Format date
+        function formatDate(date) {
+            return date.toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'America/Sao_Paulo'
+            });
+        }
+    </script>
+</body>
+</html>
