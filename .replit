@@ -37,3 +37,8 @@ externalPort = 80
 [deployment]
 deploymentTarget = "vm"
 run = ["bash", "-c", "cd bolao-copa-2026/backend && node server.js"]
+
+[userenv]
+
+[userenv.shared]
+JWT_SECRET = "9a52194432799eef3f4e64a293adcf29771de5c8600f21f44a47d642f8841089"
