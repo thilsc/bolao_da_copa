@@ -65,37 +65,36 @@ function initializeMatches() {
   const count = db.prepare('SELECT COUNT(*) as count FROM matches').get().count;
   
   if (count === 0) {
-    // Dados dos times com emojis de bandeiras
+    // Dados dos times com emojis de bandeiras — Copa do Mundo FIFA 2026 (sorteio oficial)
     const teams = {
-      'Brasil': '🇧🇷', 'Argentina': '🇦🇷', 'Alemanha': '🇩🇪', 'França': '🇫🇷',
-      'Espanha': '🇪🇸', 'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Itália': '🇮🇹', 'Portugal': '🇵🇹',
-      'Holanda': '🇳🇱', 'Bélgica': '🇧🇪', 'Croácia': '🇭🇷', 'Uruguai': '🇺🇾',
-      'México': '🇲🇽', 'Estados Unidos': '🇺🇸', 'Canadá': '🇨🇦', 'Colômbia': '🇨🇴',
-      'Chile': '🇨🇱', 'Peru': '🇵🇪', 'Equador': '🇪🇨', 'Japão': '🇯🇵',
-      'Coreia do Sul': '🇰🇷', 'Austrália': '🇦🇺', 'Irã': '🇮🇷', 'Arábia Saudita': '🇸🇦',
-      'Marrocos': '🇲🇦', 'Senegal': '🇸🇳', 'Nigéria': '🇳🇬', 'Camarões': '🇨🇲',
-      'Gana': '🇬🇭', 'Egito': '🇪🇬', 'Tunísia': '🇹🇳', 'Argélia': '🇩🇿',
-      'Suíça': '🇨🇭', 'Dinamarca': '🇩🇰', 'Suécia': '🇸🇪', 'Polônia': '🇵🇱',
-      'Ucrânia': '🇺🇦', 'República Tcheca': '🇨🇿', 'Sérvia': '🇷🇸', 'Grécia': '🇬🇷',
-      'Turquia': '🇹🇷', 'Rússia': '🇷🇺', 'Nova Zelândia': '🇳🇿', 'Costa Rica': '🇨🇷',
-      'Panamá': '🇵🇦', 'Jamaica': '🇯🇲', 'Venezuela': '🇻🇪', 'Bolívia': '🇧🇴',
-      'Paraguai': '🇵🇾', 'China': '🇨🇳', 'Índia': '🇮🇳', 'África do Sul': '🇿🇦'
+      'México': '🇲🇽', 'Coreia do Sul': '🇰🇷', 'África do Sul': '🇿🇦', 'Tchéquia': '🇨🇿',
+      'Canadá': '🇨🇦', 'Suíça': '🇨🇭', 'Qatar': '🇶🇦', 'Bósnia e Herzegovina': '🇧🇦',
+      'Brasil': '🇧🇷', 'Marrocos': '🇲🇦', 'Haiti': '🇭🇹', 'Escócia': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+      'Estados Unidos': '🇺🇸', 'Paraguai': '🇵🇾', 'Austrália': '🇦🇺', 'Turquia': '🇹🇷',
+      'Alemanha': '🇩🇪', 'Curaçao': '🇨🇼', 'Costa do Marfim': '🇨🇮', 'Equador': '🇪🇨',
+      'Holanda': '🇳🇱', 'Japão': '🇯🇵', 'Suécia': '🇸🇪', 'Tunísia': '🇹🇳',
+      'Bélgica': '🇧🇪', 'Egito': '🇪🇬', 'Irã': '🇮🇷', 'Nova Zelândia': '🇳🇿',
+      'Espanha': '🇪🇸', 'Cabo Verde': '🇨🇻', 'Arábia Saudita': '🇸🇦', 'Uruguai': '🇺🇾',
+      'França': '🇫🇷', 'Senegal': '🇸🇳', 'Iraque': '🇮🇶', 'Noruega': '🇳🇴',
+      'Argentina': '🇦🇷', 'Argélia': '🇩🇿', 'Áustria': '🇦🇹', 'Jordânia': '🇯🇴',
+      'Portugal': '🇵🇹', 'Congo DR': '🇨🇩', 'Uzbequistão': '🇺🇿', 'Colômbia': '🇨🇴',
+      'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croácia': '🇭🇷', 'Gana': '🇬🇭', 'Panamá': '🇵🇦'
     };
 
-    // Grupos da Copa 2026 (48 times, 12 grupos de 4)
+    // Grupos OFICIAIS da Copa do Mundo FIFA 2026 (sorteio de dezembro de 2025)
     const groups = [
-      { name: 'A', teams: ['Brasil', 'Cameroon', 'Jamaica', 'Suíça'] },
-      { name: 'B', teams: ['Argentina', 'Arábia Saudita', 'Polônia', 'África do Sul'] },
-      { name: 'C', teams: ['Alemanha', 'Egito', 'Coreia do Sul', 'México'] },
-      { name: 'D', teams: ['França', 'Austrália', 'Tunísia', 'Dinamarca'] },
-      { name: 'E', teams: ['Espanha', 'Costa Rica', 'Japão', 'Marrocos'] },
-      { name: 'F', teams: ['Bélgica', 'Canadá', 'Croácia', 'Marrocos'] },
-      { name: 'G', teams: ['Inglaterra', 'Irã', 'Estados Unidos', 'País de Gales'] },
-      { name: 'H', teams: ['Portugal', 'Gana', 'Uruguai', 'Coreia do Sul'] },
-      { name: 'I', teams: ['Itália', 'Paraguai', 'Nigéria', 'Nova Zelândia'] },
-      { name: 'J', teams: ['Holanda', 'Senegal', 'Equador', 'Qatar'] },
-      { name: 'K', teams: ['Colômbia', 'Grécia', 'Chile', 'Índia'] },
-      { name: 'L', teams: ['México', 'Mali', 'Islândia', 'Bolívia'] }
+      { name: 'A', teams: ['México', 'Coreia do Sul', 'África do Sul', 'Tchéquia'] },
+      { name: 'B', teams: ['Canadá', 'Suíça', 'Qatar', 'Bósnia e Herzegovina'] },
+      { name: 'C', teams: ['Brasil', 'Marrocos', 'Haiti', 'Escócia'] },
+      { name: 'D', teams: ['Estados Unidos', 'Paraguai', 'Austrália', 'Turquia'] },
+      { name: 'E', teams: ['Alemanha', 'Curaçao', 'Costa do Marfim', 'Equador'] },
+      { name: 'F', teams: ['Holanda', 'Japão', 'Suécia', 'Tunísia'] },
+      { name: 'G', teams: ['Bélgica', 'Egito', 'Irã', 'Nova Zelândia'] },
+      { name: 'H', teams: ['Espanha', 'Cabo Verde', 'Arábia Saudita', 'Uruguai'] },
+      { name: 'I', teams: ['França', 'Senegal', 'Iraque', 'Noruega'] },
+      { name: 'J', teams: ['Argentina', 'Argélia', 'Áustria', 'Jordânia'] },
+      { name: 'K', teams: ['Portugal', 'Congo DR', 'Uzbequistão', 'Colômbia'] },
+      { name: 'L', teams: ['Inglaterra', 'Croácia', 'Gana', 'Panamá'] }
     ];
 
     const insertMatch = db.prepare(`
