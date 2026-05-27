@@ -1,20 +1,19 @@
 ```
-# Dependencies
-node_modules/
+# Database
+bolao.db
 
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
+
+# Dependencies
+node_modules/
 
 # Logs
 *.log
 
-# Temporary files
-*.tmp
-*.swp
-
-# IDE
+# Editor
 .vscode/
 .idea/
 
@@ -24,50 +23,7 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
-env/
 venv/
 .venv/
-.ENV
-.python-version
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/
-.mypy_cache/
-.pytest_cache/
-.hypothesis/
-
-# Build outputs
-dist/
-build/
-*.egg-info/
-.eggs/
-.installed.cfg
-lib/
-lib64/
-parts/
-sdist/
-develop-eggs/
-downloads/
-wheels/
-*.sublime-workspace
-tags
-TAGS
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Icon?
+.env
 ```
