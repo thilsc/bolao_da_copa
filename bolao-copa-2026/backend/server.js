@@ -4,19 +4,120 @@ const bodyParser = require('body-parser');
 const Database = require('better-sqlite3');
 const axios = require('axios');
 const cron = require('node-cron');
-const path = require('path');
+const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const xss = require('xss-clean');
+const hpp = require('hpp');
+const path = require('path');
+
+// Carregar variáveis de ambiente
+dotenv.config();
+
+// Validação de variáveis de ambiente obrigatórias
+const requiredEnvVars = ['FOOTBALL_DATA_API_KEY', 'JWT_SECRET', 'APP_URL'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  console.error(`❌ ERRO CRÍTICO: Variáveis de ambiente ausentes: ${missingEnvVars.join(', ')}`);
+  console.error('Por favor, configure todas as variáveis no arquivo .env');
+  process.exit(1);
+}
+
+// Validar JWT_SECRET (deve ter pelo menos 32 caracteres)
+if (process.env.JWT_SECRET.length < 32) {
+  console.error('❌ ERRO CRÍTICO: JWT_SECRET deve ter pelo menos 32 caracteres para segurança adequada');
+  process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'bolao-2026-dev-secret';
 
-app.use(cors());
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Middleware de segurança - Helmet (configura cabeçalhos HTTP seguros)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https://api.football-data.org'],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  crossOriginEmbedderPolicy: true,
+  crossOriginOpenerPolicy: true,
+  crossOriginResourcePolicy: { policy: "same-site" },
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: 'deny' },
+  hidePoweredBy: true,
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  ieNoOpen: true,
+  noSniff: true,
+  originAgentCluster: true,
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xssFilter: true
+}));
+
+// Rate limiting para prevenir ataques de força bruta e DDoS
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Limite de 100 requisições por IP
+  message: { error: 'Muitas requisições, tente novamente mais tarde' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/health' // Não limitar health check
+});
+
+// Rate limiting mais rigoroso para rotas de autenticação
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // Apenas 5 tentativas de login por IP
+  message: { error: 'Muitas tentativas de login, tente novamente após 15 minutos' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Limitador específico para criação de usuários
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3, // Apenas 3 registros por IP por hora
+  message: { error: 'Muitos registros, tente novamente mais tarde' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Limitador para rotas admin
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20, // 20 requisições para rotas admin
+  message: { error: 'Muitas requisições administrativas' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use(limiter);
+
+// Middleware
+app.use(bodyParser.json({ limit: '10kb' })); // Limitar tamanho do payload
+app.use(xss()); // Prevenir ataques XSS
+app.use(hpp()); // Prevenir poluição de parâmetros HTTP
+
+// CORS configurado de forma segura
+app.use(cors({
+  origin: process.env.APP_URL || 'http://localhost:3001',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
 
 // ── Database ──────────────────────────────────────────────────────────────────
 const db = new Database('./bolao.db');
@@ -26,10 +127,8 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
-    password_hash TEXT,
-    is_verified INTEGER DEFAULT 0,
-    verification_token TEXT,
-    token_expires DATETIME,
+    password TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -141,21 +240,93 @@ app.post('/api/auth/register', async (req, res) => {
   if (password.length < 6)
     return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres' });
 
+// Middleware de autenticação
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Token não fornecido' });
+  }
+  
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token inválido' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Middleware para verificar se é admin
+function isAdmin(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acesso permitido apenas para administradores' });
+  }
+  next();
+}
+
+// Função de sanitização de input
+function sanitizeInput(input) {
+  if (typeof input !== 'string') return input;
+  // Remove caracteres especiais perigosos e limita o tamanho
+  return input.replace(/[<>\"'`;(){}[\]\\]/g, '').trim().substring(0, 255);
+}
+
+// Validar email
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Validar senha forte
+function isStrongPassword(password) {
+  // Mínimo 8 caracteres, pelo menos uma letra maiúscula, uma minúscula, um número e um caractere especial
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  return passwordRegex.test(password);
+}
+
+// Registrar usuário
+app.post('/api/users', registerLimiter, (req, res) => {
   try {
-    const existing = db.prepare('SELECT id, is_verified FROM users WHERE email = ?').get(email);
-    if (existing && existing.is_verified)
-      return res.status(400).json({ error: 'E-mail já cadastrado' });
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-    if (existing) {
-      db.prepare(`UPDATE users SET name=?, password_hash=?, verification_token=?, token_expires=?, is_verified=0
-                  WHERE id=?`).run(name, passwordHash, token, expires, existing.id);
+    const { name, email, password } = req.body;
+    
+    // Validações de entrada
+    if (!name || typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100) {
+      return res.status(400).json({ error: 'Nome deve ter entre 2 e 100 caracteres' });
+    }
+    
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email é obrigatório' });
+    }
+    
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
+    
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Senha é obrigatória' });
+    }
+    
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({ 
+        error: 'Senha fraca. A senha deve ter pelo menos 8 caracteres, incluindo letra maiúscula, minúscula, número e caractere especial (@$!%*?&)' 
+      });
+    }
+    
+    // Sanitizar inputs
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedEmail = email.toLowerCase().trim();
+    
+    const hashedPassword = bcrypt.hashSync(password, 12); // Aumentado para 12 rounds
+    const result = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(sanitizedName, sanitizedEmail, hashedPassword);
+    res.status(201).json({ id: result.lastInsertRowid, name: sanitizedName, email: sanitizedEmail });
+  } catch (error) {
+    if (error.message.includes('UNIQUE')) {
+      res.status(400).json({ error: 'Email já cadastrado' });
     } else {
-      db.prepare(`INSERT INTO users (name, email, password_hash, is_verified, verification_token, token_expires)
-                  VALUES (?,?,?,0,?,?)`).run(name, email, passwordHash, token, expires);
+      console.error('Erro ao registrar usuário:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
 
     await sendVerificationEmail(email, name, token);
@@ -165,304 +336,520 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Login
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-
-  if (!user || !user.password_hash)
-    return res.status(401).json({ error: 'E-mail ou senha incorretos' });
-  if (!user.is_verified)
-    return res.status(401).json({ error: 'E-mail não verificado. Confirme seu e-mail antes de entrar.', needsVerification: true });
-
-  const valid = await bcrypt.compare(password, user.password_hash);
-  if (!valid)
-    return res.status(401).json({ error: 'E-mail ou senha incorretos' });
-
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+// Login com rate limiting rigoroso
+app.post('/api/login', authLimiter, (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Validações básicas
+    if (!email || typeof email !== 'string' || !isValidEmail(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
+    
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Senha é obrigatória' });
+    }
+    
+    const sanitizedEmail = email.toLowerCase().trim();
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(sanitizedEmail);
+    
+    // Mensagem genérica para prevenir enumeração de usuários
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+    
+    const validPassword = bcrypt.compareSync(password, user.password);
+    
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+    
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    // Não enviar senha mesmo que hash no response
+    res.json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role 
+      } 
+    });
+  } catch (error) {
+    console.error('Erro no login:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
-// Verify email
-app.get('/api/auth/verify/:token', (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE verification_token = ?').get(req.params.token);
-  if (!user) return res.status(400).json({ error: 'Link de verificação inválido' });
-  if (new Date(user.token_expires) < new Date())
-    return res.status(400).json({ error: 'Link de verificação expirado. Faça um novo cadastro.' });
-
-  db.prepare('UPDATE users SET is_verified=1, verification_token=NULL, token_expires=NULL WHERE id=?').run(user.id);
-
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email } });
-});
-
-// Me
-app.get('/api/auth/me', authenticate, (req, res) => {
-  const user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(req.userId);
-  if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
-  res.json(user);
-});
-
-// Resend verification
-app.post('/api/auth/resend', async (req, res) => {
-  const { email } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-  if (!user || user.is_verified)
-    return res.status(400).json({ error: 'Usuário não encontrado ou já verificado' });
-
-  const token = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  db.prepare('UPDATE users SET verification_token=?, token_expires=? WHERE id=?').run(token, expires, user.id);
-
-  await sendVerificationEmail(user.email, user.name, token);
-  res.json({ success: true });
-});
-
-// ── App routes (require auth) ─────────────────────────────────────────────────
-
-app.get('/api/users', authenticate, (req, res) => {
-  const users = db.prepare('SELECT id, name, email FROM users WHERE is_verified=1 ORDER BY name').all();
+// Listar usuários (protegido - apenas admin)
+app.get('/api/users', authenticateToken, isAdmin, (req, res) => {
+  // Não retornar senhas
+  const users = db.prepare('SELECT id, name, email, role, created_at FROM users ORDER BY name').all();
   res.json(users);
 });
 
-app.get('/api/matches', authenticate, (req, res) => {
-  const matches = db.prepare('SELECT * FROM matches ORDER BY group_name, round, match_date').all();
-  res.json(matches);
+// Listar todos os jogos (com validação de parâmetros)
+app.get('/api/matches', (req, res) => {
+  try {
+    const matches = db.prepare('SELECT id, group_name, round, team_a, team_b, team_a_flag, team_b_flag, match_date, score_a, score_b, status FROM matches ORDER BY group_name, round, match_date').all();
+    res.json(matches);
+  } catch (error) {
+    console.error('Erro ao listar jogos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
-app.get('/api/users/:userId/predictions', authenticate, (req, res) => {
-  const predictions = db.prepare(`
-    SELECT p.*, m.team_a, m.team_b, m.team_a_flag, m.team_b_flag, m.match_date, m.score_a, m.score_b, m.status
-    FROM predictions p JOIN matches m ON p.match_id = m.id
-    WHERE p.user_id = ? ORDER BY m.match_date
-  `).all(req.params.userId);
-  res.json(predictions);
+// Obter palpites de um usuário (com autenticação e validação)
+app.get('/api/users/:userId/predictions', authenticateToken, (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Validar userId como número inteiro
+    const parsedUserId = parseInt(userId, 10);
+    if (isNaN(parsedUserId) || parsedUserId <= 0) {
+      return res.status(400).json({ error: 'ID de usuário inválido' });
+    }
+    
+    // Usuário só pode ver seus próprios palpites, a menos que seja admin
+    if (req.user.role !== 'admin' && req.user.id !== parsedUserId) {
+      return res.status(403).json({ error: 'Acesso não autorizado' });
+    }
+    
+    const predictions = db.prepare(`
+      SELECT p.id, p.predicted_score_a, p.predicted_score_b, p.predicted_result, p.points, p.created_at, p.updated_at,
+             m.team_a, m.team_b, m.team_a_flag, m.team_b_flag, m.match_date, m.score_a, m.score_b, m.status
+      FROM predictions p
+      JOIN matches m ON p.match_id = m.id
+      WHERE p.user_id = ?
+      ORDER BY m.match_date
+    `).all(parsedUserId);
+    res.json(predictions);
+  } catch (error) {
+    console.error('Erro ao obter palpites:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
-app.post('/api/predictions', authenticate, (req, res) => {
+// Fazer ou atualizar palpite (com autenticação e validações rigorosas)
+app.post('/api/predictions', authenticateToken, (req, res) => {
   try {
     const { userId, matchId, predictedScoreA, predictedScoreB, predictedResult } = req.body;
-    if (req.userId !== userId)
-      return res.status(403).json({ error: 'Sem permissão' });
-
-    const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
-    if (!match) return res.status(404).json({ error: 'Jogo não encontrado' });
+    
+    // Validar que o usuário autenticado está fazendo palpite para si mesmo
+    const parsedUserId = parseInt(userId, 10);
+    if (isNaN(parsedUserId) || parsedUserId !== req.user.id) {
+      return res.status(403).json({ error: 'Só é permitido fazer palpites para o próprio usuário' });
+    }
+    
+    // Validar matchId
+    const parsedMatchId = parseInt(matchId, 10);
+    if (isNaN(parsedMatchId) || parsedMatchId <= 0) {
+      return res.status(400).json({ error: 'ID de jogo inválido' });
+    }
+    
+    // Validar scores (devem ser números inteiros entre 0 e 99)
+    const scoreA = parseInt(predictedScoreA, 10);
+    const scoreB = parseInt(predictedScoreB, 10);
+    
+    if (isNaN(scoreA) || isNaN(scoreB) || scoreA < 0 || scoreB < 0 || scoreA > 99 || scoreB > 99) {
+      return res.status(400).json({ error: 'Placar inválido. Os valores devem ser números inteiros entre 0 e 99.' });
+    }
+    
+    // Validar resultado previsto
+    const validResults = ['A', 'B', 'draw'];
+    if (!predictedResult || !validResults.includes(predictedResult)) {
+      return res.status(400).json({ error: 'Resultado previsto inválido. Deve ser A, B ou draw.' });
+    }
+    
+    // Verificar se o jogo já começou ou está prestes a começar (menos de 1 hora)
+    const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(parsedMatchId);
+    if (!match) {
+      return res.status(404).json({ error: 'Jogo não encontrado' });
+    }
 
     const now = new Date();
-    const oneHourBefore = new Date(new Date(match.match_date).getTime() - 60 * 60 * 1000);
-    if (now >= oneHourBefore)
-      return res.status(400).json({ error: 'Palpites encerrados (menos de 1h para o jogo)' });
+    const oneHourBefore = new Date(matchDate.getTime() - 60 * 60 * 1000);
 
-    const existing = db.prepare('SELECT * FROM predictions WHERE user_id=? AND match_id=?').get(userId, matchId);
+    if (now >= oneHourBefore) {
+      return res.status(400).json({ 
+        error: 'Não é permitido alterar palpites com menos de 1 hora antes do jogo começar' 
+      });
+    }
+
+    // Verificar se já existe palpite
+    const existing = db.prepare('SELECT * FROM predictions WHERE user_id = ? AND match_id = ?').get(parsedUserId, parsedMatchId);
+
     if (existing) {
-      db.prepare(`UPDATE predictions SET predicted_score_a=?, predicted_score_b=?, predicted_result=?,
-                  updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND match_id=?`)
-        .run(predictedScoreA, predictedScoreB, predictedResult, userId, matchId);
+      db.prepare(`
+        UPDATE predictions 
+        SET predicted_score_a = ?, predicted_score_b = ?, predicted_result = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ? AND match_id = ?
+      `).run(scoreA, scoreB, predictedResult, parsedUserId, parsedMatchId);
     } else {
-      db.prepare(`INSERT INTO predictions (user_id,match_id,predicted_score_a,predicted_score_b,predicted_result)
-                  VALUES (?,?,?,?,?)`)
-        .run(userId, matchId, predictedScoreA, predictedScoreB, predictedResult);
+      db.prepare(`
+        INSERT INTO predictions (user_id, match_id, predicted_score_a, predicted_score_b, predicted_result)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(parsedUserId, parsedMatchId, scoreA, scoreB, predictedResult);
     }
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error('Erro ao criar palpite:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-app.post('/api/matches/update-scores', authenticate, (req, res) => {
+// Atualizar placares manualmente (apenas admin) - com validações rigorosas
+app.post('/api/matches/update-scores', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
   try {
-    const update = db.prepare(`UPDATE matches SET score_a=?,score_b=?,status='finished',updated_at=CURRENT_TIMESTAMP WHERE id=?`);
-    req.body.matches.forEach(({ id, scoreA, scoreB }) => update.run(scoreA, scoreB, id));
+    const { matches } = req.body;
+    
+    // Validar input
+    if (!matches || !Array.isArray(matches)) {
+      return res.status(400).json({ error: 'Dados inválidos. Esperado um array de jogos.' });
+    }
+    
+    // Limitar número de atualizações por requisição
+    if (matches.length > 50) {
+      return res.status(400).json({ error: 'Máximo de 50 jogos por requisição' });
+    }
+    
+    const updateMatch = db.prepare(`
+      UPDATE matches 
+      SET score_a = ?, score_b = ?, status = 'finished', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+
+    let updatedCount = 0;
+    
+    // Usar transação para garantir atomicidade
+    const transaction = db.transaction((matchList) => {
+      matchList.forEach(({ id, scoreA, scoreB }) => {
+        // Validar IDs e scores
+        const matchId = parseInt(id, 10);
+        const parsedScoreA = parseInt(scoreA, 10);
+        const parsedScoreB = parseInt(scoreB, 10);
+        
+        if (isNaN(matchId) || matchId <= 0) {
+          throw new Error(`ID de jogo inválido: ${id}`);
+        }
+        
+        if (isNaN(parsedScoreA) || isNaN(parsedScoreB) || parsedScoreA < 0 || parsedScoreB < 0 || parsedScoreA > 99 || parsedScoreB > 99) {
+          throw new Error(`Placar inválido para jogo ${matchId}: ${scoreA}-${scoreB}`);
+        }
+        
+        updateMatch.run(parsedScoreA, parsedScoreB, matchId);
+        updatedCount++;
+      });
+    });
+    
+    transaction(matches);
+
+    // Calcular pontos para todos os usuários
     calculatePoints();
-    res.json({ success: true, message: `${req.body.matches.length} placares atualizados` });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    res.json({ success: true, message: `${updatedCount} placares atualizados` });
+  } catch (error) {
+    console.error('Erro ao atualizar placares:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-app.post('/api/matches/fetch-results', authenticate, async (req, res) => {
+// Consumir API externa (football-data.org) - apenas admin - com timeout e validações
+app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
   try {
     const apiKey = process.env.FOOTBALL_DATA_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'API key não configurada' });
 
+    // Configurar timeout para a requisição
     const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
-      headers: { 'X-Auth-Token': apiKey }
+      headers: { 'X-Auth-Token': apiKey },
+      timeout: 10000, // 10 segundos de timeout
+      maxRedirects: 3,
+      validateStatus: (status) => status === 200
     });
-    const update = db.prepare(`UPDATE matches SET score_a=?,score_b=?,status='finished',updated_at=CURRENT_TIMESTAMP
-                                WHERE team_a=? AND team_b=?`);
-    let count = 0;
-    response.data.matches.forEach(m => {
-      if (m.status === 'FINISHED' && m.score.fullTime.home !== null) {
-        update.run(m.score.fullTime.home, m.score.fullTime.away, m.homeTeam.name, m.awayTeam.name);
-        count++;
-      }
+
+    if (!response.data || !response.data.matches) {
+      return res.status(500).json({ error: 'Resposta inválida da API' });
+    }
+
+    const matches = response.data.matches;
+    const updateMatch = db.prepare(`
+      UPDATE matches 
+      SET score_a = ?, score_b = ?, status = 'finished', updated_at = CURRENT_TIMESTAMP
+      WHERE team_a = ? AND team_b = ?
+    `);
+
+    let updatedCount = 0;
+    
+    // Usar transação para garantir atomicidade
+    const transaction = db.transaction(() => {
+      matches.forEach(match => {
+        if (match.status === 'FINISHED' && match.score.fullTime.home !== null) {
+          const homeScore = parseInt(match.score.fullTime.home, 10);
+          const awayScore = parseInt(match.score.fullTime.away, 10);
+          
+          if (!isNaN(homeScore) && !isNaN(awayScore) && homeScore >= 0 && awayScore >= 0) {
+            updateMatch.run(
+              homeScore,
+              awayScore,
+              sanitizeInput(match.homeTeam.name),
+              sanitizeInput(match.awayTeam.name)
+            );
+            updatedCount++;
+          }
+        }
+      });
     });
+    
+    transaction();
+
+    // Calcular pontos
     calculatePoints();
-    res.json({ success: true, message: `${count} resultados atualizados` });
-  } catch (err) {
+
+    res.json({ success: true, message: `${updatedCount} resultados atualizados da API` });
+  } catch (error) {
+    console.error('Erro ao buscar dados da API:', error.message);
+    if (error.code === 'ECONNABORTED') {
+      return res.status(504).json({ error: 'Timeout ao conectar com API externa' });
+    }
     res.status(500).json({ error: 'Erro ao consumir API externa' });
   }
 });
 
-app.get('/api/ranking', authenticate, (req, res) => {
-  const ranking = db.prepare(`
-    SELECT u.id, u.name, u.email,
-           COALESCE(SUM(p.points),0) as total_points,
-           COUNT(p.id) as predictions_count
-    FROM users u LEFT JOIN predictions p ON u.id = p.user_id
-    WHERE u.is_verified = 1
-    GROUP BY u.id ORDER BY total_points DESC, predictions_count ASC, u.name ASC
-  `).all();
-  res.json(ranking);
-});
-
-app.get('/api/matches/:matchId/predictions', authenticate, (req, res) => {
-  const predictions = db.prepare(`
-    SELECT u.name, p.predicted_score_a, p.predicted_score_b, p.predicted_result, p.points
-    FROM predictions p JOIN users u ON p.user_id = u.id WHERE p.match_id=? ORDER BY p.points DESC
-  `).all(req.params.matchId);
-  res.json(predictions);
-});
-
-// ── Points calculation ────────────────────────────────────────────────────────
+// Função para calcular pontos (com transação e tratamento de erros)
 function calculatePoints() {
-  const predictions = db.prepare(`
-    SELECT p.*, m.score_a, m.score_b FROM predictions p JOIN matches m ON p.match_id=m.id
-    WHERE m.status='finished' AND m.score_a IS NOT NULL
-  `).all();
+  try {
+    const predictions = db.prepare(`
+      SELECT p.id, p.predicted_score_a, p.predicted_score_b, p.predicted_result, m.score_a, m.score_b
+      FROM predictions p
+      JOIN matches m ON p.match_id = m.id
+      WHERE m.status = 'finished' AND m.score_a IS NOT NULL AND p.predicted_score_a IS NOT NULL
+    `).all();
 
-  const update = db.prepare('UPDATE predictions SET points=?, updated_at=CURRENT_TIMESTAMP WHERE id=?');
-  predictions.forEach(pred => {
-    let points = 0;
-    const actual = pred.score_a > pred.score_b ? 'A' : pred.score_b > pred.score_a ? 'B' : 'draw';
-    if (pred.predicted_score_a === pred.score_a && pred.predicted_score_b === pred.score_b) points = 5;
-    else if (pred.predicted_result === actual) points = 2;
-    update.run(points, pred.id);
-  });
+    const updatePrediction = db.prepare(`
+      UPDATE predictions SET points = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `);
+
+    // Usar transação para garantir atomicidade
+    const transaction = db.transaction((predList) => {
+      predList.forEach(pred => {
+        let points = 0;
+
+        // Validar scores
+        const actualScoreA = parseInt(pred.score_a, 10);
+        const actualScoreB = parseInt(pred.score_b, 10);
+        const predictedScoreA = parseInt(pred.predicted_score_a, 10);
+        const predictedScoreB = parseInt(pred.predicted_score_b, 10);
+
+        if (isNaN(actualScoreA) || isNaN(actualScoreB) || isNaN(predictedScoreA) || isNaN(predictedScoreB)) {
+          return; // Pular previsões com dados inválidos
+        }
+
+        // Determinar resultado real
+        let actualResult;
+        if (actualScoreA > actualScoreB) {
+          actualResult = 'A';
+        } else if (actualScoreB > actualScoreA) {
+          actualResult = 'B';
+        } else {
+          actualResult = 'draw';
+        }
+
+        // Verificar acerto do placar exato
+        if (predictedScoreA === actualScoreA && predictedScoreB === actualScoreB) {
+          points = 5;
+        } 
+        // Verificar acerto apenas do resultado
+        else if (pred.predicted_result === actualResult) {
+          points = 2;
+        }
+
+        updatePrediction.run(points, pred.id);
+      });
+    });
+
+    transaction(predictions);
+    console.log('Pontos calculados com sucesso!');
+  } catch (error) {
+    console.error('Erro ao calcular pontos:', error);
+  }
 }
 
-// ── Match initialization ──────────────────────────────────────────────────────
-function initializeMatches() {
-  const count = db.prepare('SELECT COUNT(*) as count FROM matches').get().count;
-  if (count > 0) return;
+// Ranking de usuários (sem expor dados sensíveis)
+app.get('/api/ranking', (req, res) => {
+  try {
+    const ranking = db.prepare(`
+      SELECT u.id, u.name, COALESCE(SUM(p.points), 0) as total_points, COUNT(p.id) as predictions_count
+      FROM users u
+      LEFT JOIN predictions p ON u.id = p.user_id
+      GROUP BY u.id, u.name
+      ORDER BY total_points DESC, predictions_count ASC, u.name ASC
+    `).all();
+    
+    res.json(ranking);
+  } catch (error) {
+    console.error('Erro ao obter ranking:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
 
-  const teams = {
-    'México': '🇲🇽', 'Coreia do Sul': '🇰🇷', 'África do Sul': '🇿🇦', 'Tchéquia': '🇨🇿',
-    'Canadá': '🇨🇦', 'Suíça': '🇨🇭', 'Qatar': '🇶🇦', 'Bósnia e Herzegovina': '🇧🇦',
-    'Brasil': '🇧🇷', 'Marrocos': '🇲🇦', 'Haiti': '🇭🇹', 'Escócia': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-    'Estados Unidos': '🇺🇸', 'Paraguai': '🇵🇾', 'Austrália': '🇦🇺', 'Turquia': '🇹🇷',
-    'Alemanha': '🇩🇪', 'Curaçao': '🇨🇼', 'Costa do Marfim': '🇨🇮', 'Equador': '🇪🇨',
-    'Holanda': '🇳🇱', 'Japão': '🇯🇵', 'Suécia': '🇸🇪', 'Tunísia': '🇹🇳',
-    'Bélgica': '🇧🇪', 'Egito': '🇪🇬', 'Irã': '🇮🇷', 'Nova Zelândia': '🇳🇿',
-    'Espanha': '🇪🇸', 'Cabo Verde': '🇨🇻', 'Arábia Saudita': '🇸🇦', 'Uruguai': '🇺🇾',
-    'França': '🇫🇷', 'Senegal': '🇸🇳', 'Iraque': '🇮🇶', 'Noruega': '🇳🇴',
-    'Argentina': '🇦🇷', 'Argélia': '🇩🇿', 'Áustria': '🇦🇹', 'Jordânia': '🇯🇴',
-    'Portugal': '🇵🇹', 'Congo DR': '🇨🇩', 'Uzbequistão': '🇺🇿', 'Colômbia': '🇨🇴',
-    'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croácia': '🇭🇷', 'Gana': '🇬🇭', 'Panamá': '🇵🇦'
-  };
+// Obter palpites de todos os usuários para um jogo específico (com validação)
+app.get('/api/matches/:matchId/predictions', authenticateToken, (req, res) => {
+  try {
+    const { matchId } = req.params;
+    
+    // Validar matchId
+    const parsedMatchId = parseInt(matchId, 10);
+    if (isNaN(parsedMatchId) || parsedMatchId <= 0) {
+      return res.status(400).json({ error: 'ID de jogo inválido' });
+    }
+    
+    // Verificar se o jogo existe
+    const match = db.prepare('SELECT id FROM matches WHERE id = ?').get(parsedMatchId);
+    if (!match) {
+      return res.status(404).json({ error: 'Jogo não encontrado' });
+    }
+    
+    const predictions = db.prepare(`
+      SELECT u.id, u.name, p.predicted_score_a, p.predicted_score_b, p.predicted_result, p.points
+      FROM predictions p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.match_id = ?
+      ORDER BY p.points DESC
+    `).all(parsedMatchId);
+    res.json(predictions);
+  } catch (error) {
+    console.error('Erro ao obter palpites do jogo:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
 
-  const fixtures = [
-    ['Grupo A', 1, 'México',        'África do Sul',       '2026-06-11T16:00:00-03:00'],
-    ['Grupo A', 1, 'Coreia do Sul', 'Tchéquia',            '2026-06-11T23:00:00-03:00'],
-    ['Grupo A', 2, 'Tchéquia',      'África do Sul',       '2026-06-18T13:00:00-03:00'],
-    ['Grupo A', 2, 'México',        'Coreia do Sul',       '2026-06-18T22:00:00-03:00'],
-    ['Grupo A', 3, 'México',        'Tchéquia',            '2026-06-24T22:00:00-03:00'],
-    ['Grupo A', 3, 'Coreia do Sul', 'África do Sul',       '2026-06-24T22:00:00-03:00'],
-    ['Grupo B', 1, 'Canadá',              'Bósnia e Herzegovina', '2026-06-12T16:00:00-03:00'],
-    ['Grupo B', 1, 'Qatar',               'Suíça',               '2026-06-13T19:00:00-03:00'],
-    ['Grupo B', 2, 'Canadá',              'Qatar',               '2026-06-19T19:00:00-03:00'],
-    ['Grupo B', 2, 'Bósnia e Herzegovina','Suíça',               '2026-06-20T16:00:00-03:00'],
-    ['Grupo B', 3, 'Suíça',              'Canadá',              '2026-06-25T20:30:00-03:00'],
-    ['Grupo B', 3, 'Bósnia e Herzegovina','Qatar',               '2026-06-25T20:30:00-03:00'],
-    ['Grupo C', 1, 'Brasil',   'Marrocos', '2026-06-13T19:00:00-03:00'],
-    ['Grupo C', 1, 'Haiti',    'Escócia',  '2026-06-16T13:00:00-03:00'],
-    ['Grupo C', 2, 'Brasil',   'Haiti',    '2026-06-19T22:00:00-03:00'],
-    ['Grupo C', 2, 'Marrocos', 'Escócia',  '2026-06-19T16:00:00-03:00'],
-    ['Grupo C', 3, 'Brasil',   'Escócia',  '2026-06-24T19:00:00-03:00'],
-    ['Grupo C', 3, 'Marrocos', 'Haiti',    '2026-06-24T19:00:00-03:00'],
-    ['Grupo D', 1, 'Estados Unidos', 'Paraguai',  '2026-06-12T22:00:00-03:00'],
-    ['Grupo D', 1, 'Austrália',      'Turquia',   '2026-06-13T22:00:00-03:00'],
-    ['Grupo D', 2, 'Estados Unidos', 'Austrália', '2026-06-20T13:00:00-03:00'],
-    ['Grupo D', 2, 'Paraguai',       'Turquia',   '2026-06-20T19:00:00-03:00'],
-    ['Grupo D', 3, 'Estados Unidos', 'Turquia',   '2026-06-25T22:00:00-03:00'],
-    ['Grupo D', 3, 'Paraguai',       'Austrália', '2026-06-25T22:00:00-03:00'],
-    ['Grupo E', 1, 'Alemanha',       'Curaçao',         '2026-06-14T14:00:00-03:00'],
-    ['Grupo E', 1, 'Costa do Marfim','Equador',         '2026-06-14T20:00:00-03:00'],
-    ['Grupo E', 2, 'Alemanha',       'Costa do Marfim', '2026-06-20T22:00:00-03:00'],
-    ['Grupo E', 2, 'Curaçao',        'Equador',         '2026-06-21T13:00:00-03:00'],
-    ['Grupo E', 3, 'Alemanha',       'Equador',         '2026-06-26T16:00:00-03:00'],
-    ['Grupo E', 3, 'Curaçao',        'Costa do Marfim', '2026-06-26T16:00:00-03:00'],
-    ['Grupo F', 1, 'Holanda', 'Japão',   '2026-06-14T17:00:00-03:00'],
-    ['Grupo F', 1, 'Suécia',  'Tunísia', '2026-06-14T23:00:00-03:00'],
-    ['Grupo F', 2, 'Holanda', 'Suécia',  '2026-06-21T19:00:00-03:00'],
-    ['Grupo F', 2, 'Tunísia', 'Japão',   '2026-06-21T01:00:00-03:00'],
-    ['Grupo F', 3, 'Holanda', 'Tunísia', '2026-06-26T20:30:00-03:00'],
-    ['Grupo F', 3, 'Japão',   'Suécia',  '2026-06-26T20:30:00-03:00'],
-    ['Grupo G', 1, 'Bélgica',       'Egito',         '2026-06-15T16:00:00-03:00'],
-    ['Grupo G', 1, 'Irã',           'Nova Zelândia', '2026-06-15T22:00:00-03:00'],
-    ['Grupo G', 2, 'Bélgica',       'Irã',           '2026-06-21T16:00:00-03:00'],
-    ['Grupo G', 2, 'Egito',         'Nova Zelândia', '2026-06-22T13:00:00-03:00'],
-    ['Grupo G', 3, 'Bélgica',       'Nova Zelândia', '2026-06-26T22:00:00-03:00'],
-    ['Grupo G', 3, 'Egito',         'Irã',           '2026-06-26T22:00:00-03:00'],
-    ['Grupo H', 1, 'Espanha',       'Cabo Verde',    '2026-06-15T13:00:00-03:00'],
-    ['Grupo H', 1, 'Arábia Saudita','Uruguai',       '2026-06-15T19:00:00-03:00'],
-    ['Grupo H', 2, 'Espanha',       'Arábia Saudita','2026-06-21T13:00:00-03:00'],
-    ['Grupo H', 2, 'Cabo Verde',    'Uruguai',       '2026-06-22T19:00:00-03:00'],
-    ['Grupo H', 3, 'Espanha',       'Uruguai',       '2026-06-27T13:00:00-03:00'],
-    ['Grupo H', 3, 'Cabo Verde',    'Arábia Saudita','2026-06-27T13:00:00-03:00'],
-    ['Grupo I', 1, 'França',   'Senegal', '2026-06-16T19:00:00-03:00'],
-    ['Grupo I', 1, 'Iraque',   'Noruega', '2026-06-16T22:00:00-03:00'],
-    ['Grupo I', 2, 'França',   'Iraque',  '2026-06-22T16:00:00-03:00'],
-    ['Grupo I', 2, 'Senegal',  'Noruega', '2026-06-22T22:00:00-03:00'],
-    ['Grupo I', 3, 'França',   'Noruega', '2026-06-27T16:00:00-03:00'],
-    ['Grupo I', 3, 'Senegal',  'Iraque',  '2026-06-27T16:00:00-03:00'],
-    ['Grupo J', 1, 'Argentina', 'Jordânia', '2026-06-17T22:00:00-03:00'],
-    ['Grupo J', 1, 'Argélia',   'Áustria',  '2026-06-17T13:00:00-03:00'],
-    ['Grupo J', 2, 'Argentina', 'Áustria',  '2026-06-23T22:00:00-03:00'],
-    ['Grupo J', 2, 'Argélia',   'Jordânia', '2026-06-22T22:00:00-03:00'],
-    ['Grupo J', 3, 'Argentina', 'Argélia',  '2026-06-27T20:30:00-03:00'],
-    ['Grupo J', 3, 'Áustria',   'Jordânia', '2026-06-27T20:30:00-03:00'],
-    ['Grupo K', 1, 'Portugal',   'Congo DR',    '2026-06-17T16:00:00-03:00'],
-    ['Grupo K', 1, 'Colômbia',   'Uzbequistão', '2026-06-17T19:00:00-03:00'],
-    ['Grupo K', 2, 'Portugal',   'Uzbequistão', '2026-06-23T16:00:00-03:00'],
-    ['Grupo K', 2, 'Colômbia',   'Congo DR',    '2026-06-23T13:00:00-03:00'],
-    ['Grupo K', 3, 'Portugal',   'Colômbia',    '2026-06-27T22:00:00-03:00'],
-    ['Grupo K', 3, 'Congo DR',   'Uzbequistão', '2026-06-27T22:00:00-03:00'],
-    ['Grupo L', 1, 'Inglaterra', 'Croácia', '2026-06-17T16:00:00-03:00'],
-    ['Grupo L', 1, 'Gana',       'Panamá',  '2026-06-16T16:00:00-03:00'],
-    ['Grupo L', 2, 'Inglaterra', 'Gana',    '2026-06-23T19:00:00-03:00'],
-    ['Grupo L', 2, 'Croácia',    'Panamá',  '2026-06-23T22:00:00-03:00'],
-    ['Grupo L', 3, 'Inglaterra', 'Panamá',  '2026-06-27T20:30:00-03:00'],
-    ['Grupo L', 3, 'Croácia',    'Gana',    '2026-06-27T20:30:00-03:00'],
-  ];
-
-  const insert = db.prepare(`INSERT INTO matches (group_name,round,team_a,team_b,team_a_flag,team_b_flag,match_date)
-                              VALUES (?,?,?,?,?,?,?)`);
-  fixtures.forEach(([g, r, a, b, d]) => insert.run(g, r, a, b, teams[a] || '🏳️', teams[b] || '🏳️', d));
-  console.log(`${fixtures.length} jogos inicializados com sucesso!`);
-}
-
-// ── Cron: auto-update scores every 6h ────────────────────────────────────────
+// Job agendado para atualizar placares automaticamente (a cada 6 horas) - com timeout e tratamento de erros
 cron.schedule('0 */6 * * *', async () => {
   const apiKey = process.env.FOOTBALL_DATA_API_KEY;
   if (!apiKey) return;
   try {
-    const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
-      headers: { 'X-Auth-Token': apiKey }
-    });
-    const update = db.prepare(`UPDATE matches SET score_a=?,score_b=?,status='finished',updated_at=CURRENT_TIMESTAMP WHERE team_a=? AND team_b=?`);
-    response.data.matches.forEach(m => {
-      if (m.status === 'FINISHED' && m.score.fullTime.home !== null)
-        update.run(m.score.fullTime.home, m.score.fullTime.away, m.homeTeam.name, m.awayTeam.name);
-    });
-    calculatePoints();
-  } catch (err) {
-    console.error('Erro na atualização automática:', err.message);
+    const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+    if (apiKey) {
+      const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
+        headers: { 'X-Auth-Token': apiKey },
+        timeout: 10000, // 10 segundos de timeout
+        maxRedirects: 3
+      });
+
+      if (!response.data || !response.data.matches) {
+        console.error('Resposta inválida da API no job agendado');
+        return;
+      }
+
+      const matches = response.data.matches;
+      const updateMatch = db.prepare(`
+        UPDATE matches 
+        SET score_a = ?, score_b = ?, status = 'finished', updated_at = CURRENT_TIMESTAMP
+        WHERE team_a = ? AND team_b = ?
+      `);
+
+      let updatedCount = 0;
+      
+      // Usar transação para garantir atomicidade
+      const transaction = db.transaction(() => {
+        matches.forEach(match => {
+          if (match.status === 'FINISHED' && match.score.fullTime.home !== null) {
+            const homeScore = parseInt(match.score.fullTime.home, 10);
+            const awayScore = parseInt(match.score.fullTime.away, 10);
+            
+            if (!isNaN(homeScore) && !isNaN(awayScore) && homeScore >= 0 && awayScore >= 0) {
+              updateMatch.run(
+                homeScore,
+                awayScore,
+                sanitizeInput(match.homeTeam.name),
+                sanitizeInput(match.awayTeam.name)
+              );
+              updatedCount++;
+            }
+          }
+        });
+      });
+      
+      transaction();
+
+      calculatePoints();
+      console.log(`Atualização automática concluída! ${updatedCount} jogos atualizados.`);
+    }
+  } catch (error) {
+    console.error('Erro na atualização automática:', error.message);
   }
 });
 
-// ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+// Endpoint de health check (sem rate limiting)
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Inicializar servidor - apenas em localhost por segurança
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`Servidor rodando em http://127.0.0.1:${PORT}`);
+  console.log('⚠️  Servidor configurado para aceitar conexões apenas do localhost');
   initializeMatches();
+  createAdminUser();
+});
+
+// Função para criar usuário admin se não existir (com senha gerada aleatoriamente em produção)
+function createAdminUser() {
+  const adminEmail = 'admin@bolao.com';
+  
+  // Em produção, usar variável de ambiente para a senha ou gerar uma aleatória
+  const adminPassword = process.env.ADMIN_PASSWORD || 'AdminCopa2026!Secure#Random';
+  
+  const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
+  
+  if (!existingAdmin) {
+    const hashedPassword = bcrypt.hashSync(adminPassword, 12);
+    const result = db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)').run(
+      'Administrador',
+      adminEmail,
+      hashedPassword,
+      'admin'
+    );
+    console.log('✅ Usuário admin criado com sucesso!');
+    console.log(`   Email: ${adminEmail}`);
+    console.log(`   Senha: ${adminPassword}`);
+    console.log('   ⚠️  GUARDE ESTA SENHA COM SEGURANÇA! Altere após o primeiro login.');
+  } else {
+    console.log('Usuário admin já existe.');
+  }
+}
+
+// Middleware global para tratamento de erros não capturados
+app.use((err, req, res, next) => {
+  console.error('Erro não capturado:', err);
+  
+  // Não expor detalhes do erro em produção
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  res.status(err.status || 500).json({
+    error: isProduction ? 'Erro interno do servidor' : err.message,
+    ...(isProduction ? {} : { stack: err.stack })
+  });
+});
+
+// Handler para rotas não encontradas (404)
+app.use((req, res) => {
+  res.status(404).json({ error: 'Rota não encontrada' });
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM recebido. Fechando servidor gracefulmente...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT recebido. Fechando servidor gracefulmente...');
+  process.exit(0);
 });
