@@ -4,6 +4,12 @@ const bodyParser = require('body-parser');
 const Database = require('better-sqlite3');
 const axios = require('axios');
 const cron = require('node-cron');
+const dotenv = require('dotenv');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+// Carregar variáveis de ambiente
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,6 +27,8 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -146,11 +154,43 @@ function initializeMatches() {
 
 // API Routes
 
+// Middleware de autenticação
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Token não fornecido' });
+  }
+  
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token inválido' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Middleware para verificar se é admin
+function isAdmin(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acesso permitido apenas para administradores' });
+  }
+  next();
+}
+
 // Registrar usuário
 app.post('/api/users', (req, res) => {
   try {
-    const { name, email } = req.body;
-    const result = db.prepare('INSERT INTO users (name, email) VALUES (?, ?)').run(name, email);
+    const { name, email, password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ error: 'Senha é obrigatória' });
+    }
+    
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const result = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(name, email, hashedPassword);
     res.json({ id: result.lastInsertRowid, name, email });
   } catch (error) {
     if (error.message.includes('UNIQUE')) {
@@ -158,6 +198,43 @@ app.post('/api/users', (req, res) => {
     } else {
       res.status(500).json({ error: error.message });
     }
+  }
+});
+
+// Login
+app.post('/api/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Usuário não encontrado' });
+    }
+    
+    const validPassword = bcrypt.compareSync(password, user.password);
+    
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Senha inválida' });
+    }
+    
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    res.json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role 
+      } 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -229,8 +306,8 @@ app.post('/api/predictions', (req, res) => {
   }
 });
 
-// Atualizar placares manualmente
-app.post('/api/matches/update-scores', async (req, res) => {
+// Atualizar placares manualmente (apenas admin)
+app.post('/api/matches/update-scores', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { matches } = req.body;
     
@@ -253,8 +330,8 @@ app.post('/api/matches/update-scores', async (req, res) => {
   }
 });
 
-// Consumir API externa (football-data.org)
-app.post('/api/matches/fetch-results', async (req, res) => {
+// Consumir API externa (football-data.org) - apenas admin
+app.post('/api/matches/fetch-results', authenticateToken, isAdmin, async (req, res) => {
   try {
     const apiKey = process.env.FOOTBALL_DATA_API_KEY;
     
@@ -404,4 +481,29 @@ cron.schedule('0 */6 * * *', async () => {
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   initializeMatches();
+  createAdminUser();
 });
+
+// Função para criar usuário admin se não existir
+function createAdminUser() {
+  const adminEmail = 'admin@bolao.com';
+  const adminPassword = 'AdminCopa2026!';
+  
+  const existingAdmin = db.prepare('SELECT * FROM users WHERE email = ?').get(adminEmail);
+  
+  if (!existingAdmin) {
+    const hashedPassword = bcrypt.hashSync(adminPassword, 10);
+    const result = db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)').run(
+      'Administrador',
+      adminEmail,
+      hashedPassword,
+      'admin'
+    );
+    console.log(`Usuário admin criado com sucesso! ID: ${result.lastInsertRowid}`);
+    console.log(`Email: ${adminEmail}`);
+    console.log(`Senha: ${adminPassword}`);
+    console.log('GUARDE ESTA SENHA COM SEGURANÇA!');
+  } else {
+    console.log('Usuário admin já existe.');
+  }
+}
