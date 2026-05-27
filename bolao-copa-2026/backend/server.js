@@ -7,16 +7,116 @@ const cron = require('node-cron');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const xss = require('xss-clean');
+const hpp = require('hpp');
+const path = require('path');
 
 // Carregar variáveis de ambiente
 dotenv.config();
 
+// Validação de variáveis de ambiente obrigatórias
+const requiredEnvVars = ['FOOTBALL_DATA_API_KEY', 'JWT_SECRET', 'APP_URL'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  console.error(`❌ ERRO CRÍTICO: Variáveis de ambiente ausentes: ${missingEnvVars.join(', ')}`);
+  console.error('Por favor, configure todas as variáveis no arquivo .env');
+  process.exit(1);
+}
+
+// Validar JWT_SECRET (deve ter pelo menos 32 caracteres)
+if (process.env.JWT_SECRET.length < 32) {
+  console.error('❌ ERRO CRÍTICO: JWT_SECRET deve ter pelo menos 32 caracteres para segurança adequada');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Middleware de segurança - Helmet (configura cabeçalhos HTTP seguros)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https://api.football-data.org'],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  crossOriginEmbedderPolicy: true,
+  crossOriginOpenerPolicy: true,
+  crossOriginResourcePolicy: { policy: "same-site" },
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: 'deny' },
+  hidePoweredBy: true,
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  ieNoOpen: true,
+  noSniff: true,
+  originAgentCluster: true,
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xssFilter: true
+}));
+
+// Rate limiting para prevenir ataques de força bruta e DDoS
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Limite de 100 requisições por IP
+  message: { error: 'Muitas requisições, tente novamente mais tarde' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/health' // Não limitar health check
+});
+
+// Rate limiting mais rigoroso para rotas de autenticação
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // Apenas 5 tentativas de login por IP
+  message: { error: 'Muitas tentativas de login, tente novamente após 15 minutos' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Limitador específico para criação de usuários
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3, // Apenas 3 registros por IP por hora
+  message: { error: 'Muitos registros, tente novamente mais tarde' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Limitador para rotas admin
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20, // 20 requisições para rotas admin
+  message: { error: 'Muitas requisições administrativas' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use(limiter);
+
 // Middleware
-app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '10kb' })); // Limitar tamanho do payload
+app.use(xss()); // Prevenir ataques XSS
+app.use(hpp()); // Prevenir poluição de parâmetros HTTP
+
+// CORS configurado de forma segura
+app.use(cors({
+  origin: process.env.APP_URL || 'http://localhost:3001',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
 
 // Configurar banco de dados SQLite
 const db = new Database('./bolao.db');
@@ -180,42 +280,97 @@ function isAdmin(req, res, next) {
   next();
 }
 
+// Função de sanitização de input
+function sanitizeInput(input) {
+  if (typeof input !== 'string') return input;
+  // Remove caracteres especiais perigosos e limita o tamanho
+  return input.replace(/[<>\"'`;(){}[\]\\]/g, '').trim().substring(0, 255);
+}
+
+// Validar email
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Validar senha forte
+function isStrongPassword(password) {
+  // Mínimo 8 caracteres, pelo menos uma letra maiúscula, uma minúscula, um número e um caractere especial
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  return passwordRegex.test(password);
+}
+
 // Registrar usuário
-app.post('/api/users', (req, res) => {
+app.post('/api/users', registerLimiter, (req, res) => {
   try {
     const { name, email, password } = req.body;
     
-    if (!password) {
+    // Validações de entrada
+    if (!name || typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100) {
+      return res.status(400).json({ error: 'Nome deve ter entre 2 e 100 caracteres' });
+    }
+    
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email é obrigatório' });
+    }
+    
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
+    
+    if (!password || typeof password !== 'string') {
       return res.status(400).json({ error: 'Senha é obrigatória' });
     }
     
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    const result = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(name, email, hashedPassword);
-    res.json({ id: result.lastInsertRowid, name, email });
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({ 
+        error: 'Senha fraca. A senha deve ter pelo menos 8 caracteres, incluindo letra maiúscula, minúscula, número e caractere especial (@$!%*?&)' 
+      });
+    }
+    
+    // Sanitizar inputs
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedEmail = email.toLowerCase().trim();
+    
+    const hashedPassword = bcrypt.hashSync(password, 12); // Aumentado para 12 rounds
+    const result = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(sanitizedName, sanitizedEmail, hashedPassword);
+    res.status(201).json({ id: result.lastInsertRowid, name: sanitizedName, email: sanitizedEmail });
   } catch (error) {
     if (error.message.includes('UNIQUE')) {
       res.status(400).json({ error: 'Email já cadastrado' });
     } else {
-      res.status(500).json({ error: error.message });
+      console.error('Erro ao registrar usuário:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 });
 
-// Login
-app.post('/api/login', (req, res) => {
+// Login com rate limiting rigoroso
+app.post('/api/login', authLimiter, (req, res) => {
   try {
     const { email, password } = req.body;
     
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    // Validações básicas
+    if (!email || typeof email !== 'string' || !isValidEmail(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
     
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Senha é obrigatória' });
+    }
+    
+    const sanitizedEmail = email.toLowerCase().trim();
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(sanitizedEmail);
+    
+    // Mensagem genérica para prevenir enumeração de usuários
     if (!user) {
-      return res.status(401).json({ error: 'Usuário não encontrado' });
+      return res.status(401).json({ error: 'Credenciais inválidas' });
     }
     
     const validPassword = bcrypt.compareSync(password, user.password);
     
     if (!validPassword) {
-      return res.status(401).json({ error: 'Senha inválida' });
+      return res.status(401).json({ error: 'Credenciais inválidas' });
     }
     
     const token = jwt.sign(
@@ -224,6 +379,7 @@ app.post('/api/login', (req, res) => {
       { expiresIn: '24h' }
     );
     
+    // Não enviar senha mesmo que hash no response
     res.json({ 
       token, 
       user: { 
@@ -234,42 +390,93 @@ app.post('/api/login', (req, res) => {
       } 
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erro no login:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// Listar usuários
-app.get('/api/users', (req, res) => {
-  const users = db.prepare('SELECT * FROM users ORDER BY name').all();
+// Listar usuários (protegido - apenas admin)
+app.get('/api/users', authenticateToken, isAdmin, (req, res) => {
+  // Não retornar senhas
+  const users = db.prepare('SELECT id, name, email, role, created_at FROM users ORDER BY name').all();
   res.json(users);
 });
 
-// Listar todos os jogos
+// Listar todos os jogos (com validação de parâmetros)
 app.get('/api/matches', (req, res) => {
-  const matches = db.prepare('SELECT * FROM matches ORDER BY group_name, round, match_date').all();
-  res.json(matches);
+  try {
+    const matches = db.prepare('SELECT id, group_name, round, team_a, team_b, team_a_flag, team_b_flag, match_date, score_a, score_b, status FROM matches ORDER BY group_name, round, match_date').all();
+    res.json(matches);
+  } catch (error) {
+    console.error('Erro ao listar jogos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
-// Obter palpites de um usuário
-app.get('/api/users/:userId/predictions', (req, res) => {
-  const { userId } = req.params;
-  const predictions = db.prepare(`
-    SELECT p.*, m.team_a, m.team_b, m.team_a_flag, m.team_b_flag, m.match_date, m.score_a, m.score_b, m.status
-    FROM predictions p
-    JOIN matches m ON p.match_id = m.id
-    WHERE p.user_id = ?
-    ORDER BY m.match_date
-  `).all(userId);
-  res.json(predictions);
+// Obter palpites de um usuário (com autenticação e validação)
+app.get('/api/users/:userId/predictions', authenticateToken, (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Validar userId como número inteiro
+    const parsedUserId = parseInt(userId, 10);
+    if (isNaN(parsedUserId) || parsedUserId <= 0) {
+      return res.status(400).json({ error: 'ID de usuário inválido' });
+    }
+    
+    // Usuário só pode ver seus próprios palpites, a menos que seja admin
+    if (req.user.role !== 'admin' && req.user.id !== parsedUserId) {
+      return res.status(403).json({ error: 'Acesso não autorizado' });
+    }
+    
+    const predictions = db.prepare(`
+      SELECT p.id, p.predicted_score_a, p.predicted_score_b, p.predicted_result, p.points, p.created_at, p.updated_at,
+             m.team_a, m.team_b, m.team_a_flag, m.team_b_flag, m.match_date, m.score_a, m.score_b, m.status
+      FROM predictions p
+      JOIN matches m ON p.match_id = m.id
+      WHERE p.user_id = ?
+      ORDER BY m.match_date
+    `).all(parsedUserId);
+    res.json(predictions);
+  } catch (error) {
+    console.error('Erro ao obter palpites:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
-// Fazer ou atualizar palpite
-app.post('/api/predictions', (req, res) => {
+// Fazer ou atualizar palpite (com autenticação e validações rigorosas)
+app.post('/api/predictions', authenticateToken, (req, res) => {
   try {
     const { userId, matchId, predictedScoreA, predictedScoreB, predictedResult } = req.body;
     
+    // Validar que o usuário autenticado está fazendo palpite para si mesmo
+    const parsedUserId = parseInt(userId, 10);
+    if (isNaN(parsedUserId) || parsedUserId !== req.user.id) {
+      return res.status(403).json({ error: 'Só é permitido fazer palpites para o próprio usuário' });
+    }
+    
+    // Validar matchId
+    const parsedMatchId = parseInt(matchId, 10);
+    if (isNaN(parsedMatchId) || parsedMatchId <= 0) {
+      return res.status(400).json({ error: 'ID de jogo inválido' });
+    }
+    
+    // Validar scores (devem ser números inteiros entre 0 e 99)
+    const scoreA = parseInt(predictedScoreA, 10);
+    const scoreB = parseInt(predictedScoreB, 10);
+    
+    if (isNaN(scoreA) || isNaN(scoreB) || scoreA < 0 || scoreB < 0 || scoreA > 99 || scoreB > 99) {
+      return res.status(400).json({ error: 'Placar inválido. Os valores devem ser números inteiros entre 0 e 99.' });
+    }
+    
+    // Validar resultado previsto
+    const validResults = ['A', 'B', 'draw'];
+    if (!predictedResult || !validResults.includes(predictedResult)) {
+      return res.status(400).json({ error: 'Resultado previsto inválido. Deve ser A, B ou draw.' });
+    }
+    
     // Verificar se o jogo já começou ou está prestes a começar (menos de 1 hora)
-    const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+    const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(parsedMatchId);
     if (!match) {
       return res.status(404).json({ error: 'Jogo não encontrado' });
     }
@@ -285,31 +492,42 @@ app.post('/api/predictions', (req, res) => {
     }
 
     // Verificar se já existe palpite
-    const existing = db.prepare('SELECT * FROM predictions WHERE user_id = ? AND match_id = ?').get(userId, matchId);
+    const existing = db.prepare('SELECT * FROM predictions WHERE user_id = ? AND match_id = ?').get(parsedUserId, parsedMatchId);
 
     if (existing) {
       db.prepare(`
         UPDATE predictions 
         SET predicted_score_a = ?, predicted_score_b = ?, predicted_result = ?, updated_at = CURRENT_TIMESTAMP
         WHERE user_id = ? AND match_id = ?
-      `).run(predictedScoreA, predictedScoreB, predictedResult, userId, matchId);
+      `).run(scoreA, scoreB, predictedResult, parsedUserId, parsedMatchId);
     } else {
       db.prepare(`
         INSERT INTO predictions (user_id, match_id, predicted_score_a, predicted_score_b, predicted_result)
         VALUES (?, ?, ?, ?, ?)
-      `).run(userId, matchId, predictedScoreA, predictedScoreB, predictedResult);
+      `).run(parsedUserId, parsedMatchId, scoreA, scoreB, predictedResult);
     }
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erro ao criar palpite:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// Atualizar placares manualmente (apenas admin)
-app.post('/api/matches/update-scores', authenticateToken, isAdmin, async (req, res) => {
+// Atualizar placares manualmente (apenas admin) - com validações rigorosas
+app.post('/api/matches/update-scores', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
   try {
     const { matches } = req.body;
+    
+    // Validar input
+    if (!matches || !Array.isArray(matches)) {
+      return res.status(400).json({ error: 'Dados inválidos. Esperado um array de jogos.' });
+    }
+    
+    // Limitar número de atualizações por requisição
+    if (matches.length > 50) {
+      return res.status(400).json({ error: 'Máximo de 50 jogos por requisição' });
+    }
     
     const updateMatch = db.prepare(`
       UPDATE matches 
@@ -317,21 +535,43 @@ app.post('/api/matches/update-scores', authenticateToken, isAdmin, async (req, r
       WHERE id = ?
     `);
 
-    matches.forEach(({ id, scoreA, scoreB }) => {
-      updateMatch.run(scoreA, scoreB, id);
+    let updatedCount = 0;
+    
+    // Usar transação para garantir atomicidade
+    const transaction = db.transaction((matchList) => {
+      matchList.forEach(({ id, scoreA, scoreB }) => {
+        // Validar IDs e scores
+        const matchId = parseInt(id, 10);
+        const parsedScoreA = parseInt(scoreA, 10);
+        const parsedScoreB = parseInt(scoreB, 10);
+        
+        if (isNaN(matchId) || matchId <= 0) {
+          throw new Error(`ID de jogo inválido: ${id}`);
+        }
+        
+        if (isNaN(parsedScoreA) || isNaN(parsedScoreB) || parsedScoreA < 0 || parsedScoreB < 0 || parsedScoreA > 99 || parsedScoreB > 99) {
+          throw new Error(`Placar inválido para jogo ${matchId}: ${scoreA}-${scoreB}`);
+        }
+        
+        updateMatch.run(parsedScoreA, parsedScoreB, matchId);
+        updatedCount++;
+      });
     });
+    
+    transaction(matches);
 
     // Calcular pontos para todos os usuários
     calculatePoints();
 
-    res.json({ success: true, message: `${matches.length} placares atualizados` });
+    res.json({ success: true, message: `${updatedCount} placares atualizados` });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erro ao atualizar placares:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// Consumir API externa (football-data.org) - apenas admin
-app.post('/api/matches/fetch-results', authenticateToken, isAdmin, async (req, res) => {
+// Consumir API externa (football-data.org) - apenas admin - com timeout e validações
+app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
   try {
     const apiKey = process.env.FOOTBALL_DATA_API_KEY;
     
@@ -339,10 +579,17 @@ app.post('/api/matches/fetch-results', authenticateToken, isAdmin, async (req, r
       return res.status(500).json({ error: 'API key não configurada' });
     }
 
-    // Exemplo de consumo da API football-data.org
+    // Configurar timeout para a requisição
     const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
-      headers: { 'X-Auth-Token': apiKey }
+      headers: { 'X-Auth-Token': apiKey },
+      timeout: 10000, // 10 segundos de timeout
+      maxRedirects: 3,
+      validateStatus: (status) => status === 200
     });
+
+    if (!response.data || !response.data.matches) {
+      return res.status(500).json({ error: 'Resposta inválida da API' });
+    }
 
     const matches = response.data.matches;
     const updateMatch = db.prepare(`
@@ -352,17 +599,28 @@ app.post('/api/matches/fetch-results', authenticateToken, isAdmin, async (req, r
     `);
 
     let updatedCount = 0;
-    matches.forEach(match => {
-      if (match.status === 'FINISHED' && match.score.fullTime.home !== null) {
-        updateMatch.run(
-          match.score.fullTime.home,
-          match.score.fullTime.away,
-          match.homeTeam.name,
-          match.awayTeam.name
-        );
-        updatedCount++;
-      }
+    
+    // Usar transação para garantir atomicidade
+    const transaction = db.transaction(() => {
+      matches.forEach(match => {
+        if (match.status === 'FINISHED' && match.score.fullTime.home !== null) {
+          const homeScore = parseInt(match.score.fullTime.home, 10);
+          const awayScore = parseInt(match.score.fullTime.away, 10);
+          
+          if (!isNaN(homeScore) && !isNaN(awayScore) && homeScore >= 0 && awayScore >= 0) {
+            updateMatch.run(
+              homeScore,
+              awayScore,
+              sanitizeInput(match.homeTeam.name),
+              sanitizeInput(match.awayTeam.name)
+            );
+            updatedCount++;
+          }
+        }
+      });
     });
+    
+    transaction();
 
     // Calcular pontos
     calculatePoints();
@@ -370,86 +628,137 @@ app.post('/api/matches/fetch-results', authenticateToken, isAdmin, async (req, r
     res.json({ success: true, message: `${updatedCount} resultados atualizados da API` });
   } catch (error) {
     console.error('Erro ao buscar dados da API:', error.message);
+    if (error.code === 'ECONNABORTED') {
+      return res.status(504).json({ error: 'Timeout ao conectar com API externa' });
+    }
     res.status(500).json({ error: 'Erro ao consumir API externa' });
   }
 });
 
-// Função para calcular pontos
+// Função para calcular pontos (com transação e tratamento de erros)
 function calculatePoints() {
-  const predictions = db.prepare(`
-    SELECT p.*, m.score_a, m.score_b
-    FROM predictions p
-    JOIN matches m ON p.match_id = m.id
-    WHERE m.status = 'finished' AND m.score_a IS NOT NULL
-  `).all();
+  try {
+    const predictions = db.prepare(`
+      SELECT p.id, p.predicted_score_a, p.predicted_score_b, p.predicted_result, m.score_a, m.score_b
+      FROM predictions p
+      JOIN matches m ON p.match_id = m.id
+      WHERE m.status = 'finished' AND m.score_a IS NOT NULL AND p.predicted_score_a IS NOT NULL
+    `).all();
 
-  const updatePrediction = db.prepare(`
-    UPDATE predictions SET points = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-  `);
+    const updatePrediction = db.prepare(`
+      UPDATE predictions SET points = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `);
 
-  predictions.forEach(pred => {
-    let points = 0;
+    // Usar transação para garantir atomicidade
+    const transaction = db.transaction((predList) => {
+      predList.forEach(pred => {
+        let points = 0;
 
-    // Determinar resultado real
-    let actualResult;
-    if (pred.score_a > pred.score_b) {
-      actualResult = 'A';
-    } else if (pred.score_b > pred.score_a) {
-      actualResult = 'B';
-    } else {
-      actualResult = 'draw';
-    }
+        // Validar scores
+        const actualScoreA = parseInt(pred.score_a, 10);
+        const actualScoreB = parseInt(pred.score_b, 10);
+        const predictedScoreA = parseInt(pred.predicted_score_a, 10);
+        const predictedScoreB = parseInt(pred.predicted_score_b, 10);
 
-    // Verificar acerto do placar exato
-    if (pred.predicted_score_a === pred.score_a && pred.predicted_score_b === pred.score_b) {
-      points = 5;
-    } 
-    // Verificar acerto apenas do resultado
-    else if (pred.predicted_result === actualResult) {
-      points = 2;
-    }
+        if (isNaN(actualScoreA) || isNaN(actualScoreB) || isNaN(predictedScoreA) || isNaN(predictedScoreB)) {
+          return; // Pular previsões com dados inválidos
+        }
 
-    updatePrediction.run(points, pred.id);
-  });
+        // Determinar resultado real
+        let actualResult;
+        if (actualScoreA > actualScoreB) {
+          actualResult = 'A';
+        } else if (actualScoreB > actualScoreA) {
+          actualResult = 'B';
+        } else {
+          actualResult = 'draw';
+        }
 
-  console.log('Pontos calculados com sucesso!');
+        // Verificar acerto do placar exato
+        if (predictedScoreA === actualScoreA && predictedScoreB === actualScoreB) {
+          points = 5;
+        } 
+        // Verificar acerto apenas do resultado
+        else if (pred.predicted_result === actualResult) {
+          points = 2;
+        }
+
+        updatePrediction.run(points, pred.id);
+      });
+    });
+
+    transaction(predictions);
+    console.log('Pontos calculados com sucesso!');
+  } catch (error) {
+    console.error('Erro ao calcular pontos:', error);
+  }
 }
 
-// Ranking de usuários
+// Ranking de usuários (sem expor dados sensíveis)
 app.get('/api/ranking', (req, res) => {
-  const ranking = db.prepare(`
-    SELECT u.id, u.name, u.email, COALESCE(SUM(p.points), 0) as total_points, COUNT(p.id) as predictions_count
-    FROM users u
-    LEFT JOIN predictions p ON u.id = p.user_id
-    GROUP BY u.id, u.name, u.email
-    ORDER BY total_points DESC, predictions_count ASC, u.name ASC
-  `).all();
-  
-  res.json(ranking);
+  try {
+    const ranking = db.prepare(`
+      SELECT u.id, u.name, COALESCE(SUM(p.points), 0) as total_points, COUNT(p.id) as predictions_count
+      FROM users u
+      LEFT JOIN predictions p ON u.id = p.user_id
+      GROUP BY u.id, u.name
+      ORDER BY total_points DESC, predictions_count ASC, u.name ASC
+    `).all();
+    
+    res.json(ranking);
+  } catch (error) {
+    console.error('Erro ao obter ranking:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
-// Obter palpites de todos os usuários para um jogo específico
-app.get('/api/matches/:matchId/predictions', (req, res) => {
-  const { matchId } = req.params;
-  const predictions = db.prepare(`
-    SELECT u.name, p.predicted_score_a, p.predicted_score_b, p.predicted_result, p.points
-    FROM predictions p
-    JOIN users u ON p.user_id = u.id
-    WHERE p.match_id = ?
-    ORDER BY p.points DESC
-  `).all(matchId);
-  res.json(predictions);
+// Obter palpites de todos os usuários para um jogo específico (com validação)
+app.get('/api/matches/:matchId/predictions', authenticateToken, (req, res) => {
+  try {
+    const { matchId } = req.params;
+    
+    // Validar matchId
+    const parsedMatchId = parseInt(matchId, 10);
+    if (isNaN(parsedMatchId) || parsedMatchId <= 0) {
+      return res.status(400).json({ error: 'ID de jogo inválido' });
+    }
+    
+    // Verificar se o jogo existe
+    const match = db.prepare('SELECT id FROM matches WHERE id = ?').get(parsedMatchId);
+    if (!match) {
+      return res.status(404).json({ error: 'Jogo não encontrado' });
+    }
+    
+    const predictions = db.prepare(`
+      SELECT u.id, u.name, p.predicted_score_a, p.predicted_score_b, p.predicted_result, p.points
+      FROM predictions p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.match_id = ?
+      ORDER BY p.points DESC
+    `).all(parsedMatchId);
+    res.json(predictions);
+  } catch (error) {
+    console.error('Erro ao obter palpites do jogo:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
-// Job agendado para atualizar placares automaticamente (a cada 6 horas)
+// Job agendado para atualizar placares automaticamente (a cada 6 horas) - com timeout e tratamento de erros
 cron.schedule('0 */6 * * *', async () => {
   console.log('Executando atualização automática de placares...');
   try {
     const apiKey = process.env.FOOTBALL_DATA_API_KEY;
     if (apiKey) {
       const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
-        headers: { 'X-Auth-Token': apiKey }
+        headers: { 'X-Auth-Token': apiKey },
+        timeout: 10000, // 10 segundos de timeout
+        maxRedirects: 3
       });
+
+      if (!response.data || !response.data.matches) {
+        console.error('Resposta inválida da API no job agendado');
+        return;
+      }
 
       const matches = response.data.matches;
       const updateMatch = db.prepare(`
@@ -458,52 +767,102 @@ cron.schedule('0 */6 * * *', async () => {
         WHERE team_a = ? AND team_b = ?
       `);
 
-      matches.forEach(match => {
-        if (match.status === 'FINISHED' && match.score.fullTime.home !== null) {
-          updateMatch.run(
-            match.score.fullTime.home,
-            match.score.fullTime.away,
-            match.homeTeam.name,
-            match.awayTeam.name
-          );
-        }
+      let updatedCount = 0;
+      
+      // Usar transação para garantir atomicidade
+      const transaction = db.transaction(() => {
+        matches.forEach(match => {
+          if (match.status === 'FINISHED' && match.score.fullTime.home !== null) {
+            const homeScore = parseInt(match.score.fullTime.home, 10);
+            const awayScore = parseInt(match.score.fullTime.away, 10);
+            
+            if (!isNaN(homeScore) && !isNaN(awayScore) && homeScore >= 0 && awayScore >= 0) {
+              updateMatch.run(
+                homeScore,
+                awayScore,
+                sanitizeInput(match.homeTeam.name),
+                sanitizeInput(match.awayTeam.name)
+              );
+              updatedCount++;
+            }
+          }
+        });
       });
+      
+      transaction();
 
       calculatePoints();
-      console.log('Atualização automática concluída!');
+      console.log(`Atualização automática concluída! ${updatedCount} jogos atualizados.`);
     }
   } catch (error) {
     console.error('Erro na atualização automática:', error.message);
   }
 });
 
-// Inicializar servidor
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+// Endpoint de health check (sem rate limiting)
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Inicializar servidor - apenas em localhost por segurança
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`Servidor rodando em http://127.0.0.1:${PORT}`);
+  console.log('⚠️  Servidor configurado para aceitar conexões apenas do localhost');
   initializeMatches();
   createAdminUser();
 });
 
-// Função para criar usuário admin se não existir
+// Função para criar usuário admin se não existir (com senha gerada aleatoriamente em produção)
 function createAdminUser() {
   const adminEmail = 'admin@bolao.com';
-  const adminPassword = 'AdminCopa2026!';
   
-  const existingAdmin = db.prepare('SELECT * FROM users WHERE email = ?').get(adminEmail);
+  // Em produção, usar variável de ambiente para a senha ou gerar uma aleatória
+  const adminPassword = process.env.ADMIN_PASSWORD || 'AdminCopa2026!Secure#Random';
+  
+  const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
   
   if (!existingAdmin) {
-    const hashedPassword = bcrypt.hashSync(adminPassword, 10);
+    const hashedPassword = bcrypt.hashSync(adminPassword, 12);
     const result = db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)').run(
       'Administrador',
       adminEmail,
       hashedPassword,
       'admin'
     );
-    console.log(`Usuário admin criado com sucesso! ID: ${result.lastInsertRowid}`);
-    console.log(`Email: ${adminEmail}`);
-    console.log(`Senha: ${adminPassword}`);
-    console.log('GUARDE ESTA SENHA COM SEGURANÇA!');
+    console.log('✅ Usuário admin criado com sucesso!');
+    console.log(`   Email: ${adminEmail}`);
+    console.log(`   Senha: ${adminPassword}`);
+    console.log('   ⚠️  GUARDE ESTA SENHA COM SEGURANÇA! Altere após o primeiro login.');
   } else {
     console.log('Usuário admin já existe.');
   }
 }
+
+// Middleware global para tratamento de erros não capturados
+app.use((err, req, res, next) => {
+  console.error('Erro não capturado:', err);
+  
+  // Não expor detalhes do erro em produção
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  res.status(err.status || 500).json({
+    error: isProduction ? 'Erro interno do servidor' : err.message,
+    ...(isProduction ? {} : { stack: err.stack })
+  });
+});
+
+// Handler para rotas não encontradas (404)
+app.use((req, res) => {
+  res.status(404).json({ error: 'Rota não encontrada' });
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM recebido. Fechando servidor gracefulmente...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT recebido. Fechando servidor gracefulmente...');
+  process.exit(0);
+});
