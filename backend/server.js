@@ -1113,8 +1113,22 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor rodando em http://0.0.0.0:${PORT}`);
   console.log('✅ Servidor configurado para aceitar conexões externas');
   createAdminUser();
+  resetPredictionsAndMatches(); //temporário
   initializeMatches();
 });
+
+// Função para inicializar partidas da Copa do Mundo 2026 (fase de grupos) - Dados oficiais FIFA
+function resetPredictionsAndMatches() {
+
+  console.log('🗑️ Excluindo todos os palpites existentes...');
+  db.exec('DELETE FROM predictions');
+  
+  // Excluir todos os jogos
+  console.log('🗑️ Excluindo todos os jogos existentes...');
+  db.exec('DELETE FROM matches');
+  
+  return;
+}
 
 // Função para inicializar partidas da Copa do Mundo 2026 (fase de grupos) - Dados oficiais FIFA
 function initializeMatches() {
