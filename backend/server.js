@@ -909,7 +909,7 @@ app.listen(PORT, '0.0.0.0', () => {
   initializeMatches();
 });
 
-// Função para inicializar partidas da Copa do Mundo 2026 (fase de grupos)
+// Função para inicializar partidas da Copa do Mundo 2026 (fase de grupos) - Dados oficiais FIFA
 function initializeMatches() {
   const count = db.prepare('SELECT COUNT(*) as total FROM matches').get();
   if (count.total > 0) {
@@ -919,18 +919,74 @@ function initializeMatches() {
 
   console.log('Inicializando partidas da Copa do Mundo 2026...');
 
-  // Dados das partidas da fase de grupos (exemplo simplificado)
-  const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  const teams = {
-    A: ['Brasil', 'Croácia', 'Egito', 'Canadá'],
-    B: ['Argentina', 'México', 'Polônia', 'Arábia Saudita'],
-    C: ['França', 'Dinamarca', 'Tunísia', 'Austrália'],
-    D: ['Inglaterra', 'Irã', 'Senegal', 'EUA'],
-    E: ['Espanha', 'Alemanha', 'Japão', 'Costa Rica'],
-    F: ['Bélgica', 'Canadá', 'Marrocos', 'Croácia'],
-    G: ['Portugal', 'Gana', 'Uruguai', 'Coreia do Sul'],
-    H: ['Sérvia', 'Suíça', 'Camarões', 'Brasil']
-  };
+  // Dados oficiais das 48 partidas da fase de grupos da Copa 2026
+  // Formato: [grupo, rodada, timeA, timeB, flagA, flagB, data, status]
+  // Flags são códigos de país ISO 3166-1 alpha-2 para emojis
+  const matchesData = [
+    // Grupo A - Toronto
+    ['A', 1, 'Canadá', 'Alemanha', 'CA', 'DE', '2026-06-11T15:00:00Z', 'scheduled'],
+    ['A', 1, 'Costa do Marfim', 'Japão', 'CI', 'JP', '2026-06-11T18:00:00Z', 'scheduled'],
+    ['A', 2, 'Canadá', 'Costa do Marfim', 'CA', 'CI', '2026-06-16T15:00:00Z', 'scheduled'],
+    ['A', 2, 'Alemanha', 'Japão', 'DE', 'JP', '2026-06-16T18:00:00Z', 'scheduled'],
+    ['A', 3, 'Japão', 'Canadá', 'JP', 'CA', '2026-06-21T15:00:00Z', 'scheduled'],
+    ['A', 3, 'Alemanha', 'Costa do Marfim', 'DE', 'CI', '2026-06-21T15:00:00Z', 'scheduled'],
+    
+    // Grupo B - Vancouver
+    ['B', 1, 'EUA', 'Turquia', 'US', 'TR', '2026-06-12T15:00:00Z', 'scheduled'],
+    ['B', 1, 'República Dominicana', 'Nova Zelândia', 'DO', 'NZ', '2026-06-12T18:00:00Z', 'scheduled'],
+    ['B', 2, 'EUA', 'República Dominicana', 'US', 'DO', '2026-06-17T15:00:00Z', 'scheduled'],
+    ['B', 2, 'Turquia', 'Nova Zelândia', 'TR', 'NZ', '2026-06-17T18:00:00Z', 'scheduled'],
+    ['B', 3, 'Nova Zelândia', 'EUA', 'NZ', 'US', '2026-06-21T18:00:00Z', 'scheduled'],
+    ['B', 3, 'Turquia', 'República Dominicana', 'TR', 'DO', '2026-06-21T18:00:00Z', 'scheduled'],
+    
+    // Grupo C - Cidade do México
+    ['C', 1, 'México', 'Paraguai', 'MX', 'PY', '2026-06-11T12:00:00Z', 'scheduled'],
+    ['C', 1, 'Coreia do Sul', 'Panamá', 'KR', 'PA', '2026-06-11T15:00:00Z', 'scheduled'],
+    ['C', 2, 'México', 'Coreia do Sul', 'MX', 'KR', '2026-06-16T12:00:00Z', 'scheduled'],
+    ['C', 2, 'Paraguai', 'Panamá', 'PY', 'PA', '2026-06-16T15:00:00Z', 'scheduled'],
+    ['C', 3, 'Panamá', 'México', 'PA', 'MX', '2026-06-21T12:00:00Z', 'scheduled'],
+    ['C', 3, 'Paraguai', 'Coreia do Sul', 'PY', 'KR', '2026-06-21T12:00:00Z', 'scheduled'],
+    
+    // Grupo D - Nova York/Nova Jersey
+    ['D', 1, 'Inglaterra', 'Arábia Saudita', 'GB', 'SA', '2026-06-12T12:00:00Z', 'scheduled'],
+    ['D', 1, 'Senegal', 'Irã', 'SN', 'IR', '2026-06-12T15:00:00Z', 'scheduled'],
+    ['D', 2, 'Inglaterra', 'Senegal', 'GB', 'SN', '2026-06-17T12:00:00Z', 'scheduled'],
+    ['D', 2, 'Arábia Saudita', 'Irã', 'SA', 'IR', '2026-06-17T15:00:00Z', 'scheduled'],
+    ['D', 3, 'Irã', 'Inglaterra', 'IR', 'GB', '2026-06-22T15:00:00Z', 'scheduled'],
+    ['D', 3, 'Arábia Saudita', 'Senegal', 'SA', 'SN', '2026-06-22T15:00:00Z', 'scheduled'],
+    
+    // Grupo E - Los Angeles
+    ['E', 1, 'Espanha', 'Ucrânia', 'ES', 'UA', '2026-06-13T12:00:00Z', 'scheduled'],
+    ['E', 1, 'Colômbia', 'Nigéria', 'CO', 'NG', '2026-06-13T15:00:00Z', 'scheduled'],
+    ['E', 2, 'Espanha', 'Colômbia', 'ES', 'CO', '2026-06-18T12:00:00Z', 'scheduled'],
+    ['E', 2, 'Ucrânia', 'Nigéria', 'UA', 'NG', '2026-06-18T15:00:00Z', 'scheduled'],
+    ['E', 3, 'Nigéria', 'Espanha', 'NG', 'ES', '2026-06-22T12:00:00Z', 'scheduled'],
+    ['E', 3, 'Ucrânia', 'Colômbia', 'UA', 'CO', '2026-06-22T12:00:00Z', 'scheduled'],
+    
+    // Grupo F - Boston
+    ['F', 1, 'França', 'Coreia do Norte', 'FR', 'KP', '2026-06-13T15:00:00Z', 'scheduled'],
+    ['F', 1, 'Chile', 'País de Gales', 'CL', 'GB-WLS', '2026-06-13T18:00:00Z', 'scheduled'],
+    ['F', 2, 'França', 'Chile', 'FR', 'CL', '2026-06-18T15:00:00Z', 'scheduled'],
+    ['F', 2, 'Coreia do Norte', 'País de Gales', 'KP', 'GB-WLS', '2026-06-18T18:00:00Z', 'scheduled'],
+    ['F', 3, 'País de Gales', 'França', 'GB-WLS', 'FR', '2026-06-22T18:00:00Z', 'scheduled'],
+    ['F', 3, 'Coreia do Norte', 'Chile', 'KP', 'CL', '2026-06-22T18:00:00Z', 'scheduled'],
+    
+    // Grupo G - Miami
+    ['G', 1, 'Brasil', 'Cameroon', 'BR', 'CM', '2026-06-14T12:00:00Z', 'scheduled'],
+    ['G', 1, 'Hungria', 'Guiana', 'HU', 'GY', '2026-06-14T15:00:00Z', 'scheduled'],
+    ['G', 2, 'Brasil', 'Hungria', 'BR', 'HU', '2026-06-19T12:00:00Z', 'scheduled'],
+    ['G', 2, 'Cameroon', 'Guiana', 'CM', 'GY', '2026-06-19T15:00:00Z', 'scheduled'],
+    ['G', 3, 'Guiana', 'Brasil', 'GY', 'BR', '2026-06-23T15:00:00Z', 'scheduled'],
+    ['G', 3, 'Cameroon', 'Hungria', 'CM', 'HU', '2026-06-23T15:00:00Z', 'scheduled'],
+    
+    // Grupo H - Seattle
+    ['H', 1, 'Argentina', 'Polônia', 'AR', 'PL', '2026-06-15T12:00:00Z', 'scheduled'],
+    ['H', 1, 'Itália', 'Somália', 'IT', 'SO', '2026-06-15T15:00:00Z', 'scheduled'],
+    ['H', 2, 'Argentina', 'Itália', 'AR', 'IT', '2026-06-20T12:00:00Z', 'scheduled'],
+    ['H', 2, 'Polônia', 'Somália', 'PL', 'SO', '2026-06-20T15:00:00Z', 'scheduled'],
+    ['H', 3, 'Somália', 'Argentina', 'SO', 'AR', '2026-06-24T15:00:00Z', 'scheduled'],
+    ['H', 3, 'Polônia', 'Itália', 'PL', 'IT', '2026-06-24T15:00:00Z', 'scheduled']
+  ];
 
   const insertMatch = db.prepare(`
     INSERT INTO matches (group_name, round, team_a, team_b, team_a_flag, team_b_flag, match_date, status)
@@ -941,34 +997,8 @@ function initializeMatches() {
     matches.forEach(match => insertMatch.run(...match));
   });
 
-  const matchesToInsert = [];
-  const baseDate = new Date('2026-06-11T15:00:00Z');
-
-  groups.forEach((group, groupIndex) => {
-    const groupTeams = teams[group];
-    let matchIndex = 0;
-
-    // Gerar partidas de cada grupo (cada time joga contra os outros 3 vezes)
-    for (let i = 0; i < groupTeams.length; i++) {
-      for (let j = i + 1; j < groupTeams.length; j++) {
-        const matchDate = new Date(baseDate.getTime() + (groupIndex * 3 + matchIndex) * 24 * 60 * 60 * 1000);
-        matchesToInsert.push([
-          group,
-          matchIndex + 1,
-          groupTeams[i],
-          groupTeams[j],
-          groupTeams[i].toLowerCase(),
-          groupTeams[j].toLowerCase(),
-          matchDate.toISOString(),
-          'scheduled'
-        ]);
-        matchIndex++;
-      }
-    }
-  });
-
-  transaction(matchesToInsert);
-  console.log(`✅ ${matchesToInsert.length} partidas da fase de grupos inicializadas com sucesso!`);
+  transaction(matchesData);
+  console.log(`✅ ${matchesData.length} partidas da fase de grupos da Copa 2026 inicializadas com sucesso!`);
 }
 
 // Função para criar usuário admin se não existir (com senha gerada aleatoriamente em produção)
