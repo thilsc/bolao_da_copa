@@ -706,7 +706,7 @@ body {
   </div>
 
   <!-- Bottom nav (mobile) -->
-  <nav class="bottom-nav">
+  <nav class="bottom-nav" id="bottom-nav">
     <button class="nav-btn active" id="nav-palpites" onclick="switchTab('palpites',this)">
       <span class="nav-icon">🎯</span>Palpites
     </button>
@@ -1280,16 +1280,30 @@ function switchTab(tab, clickedBtn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
 
-  // Bottom nav
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  const bottomBtn = document.getElementById(`nav-${tab}`);
-  if (bottomBtn) bottomBtn.classList.add('active');
+  // Bottom nav - esconder botão Palpites para admin
+  const bottomNav = document.getElementById('bottom-nav');
+  const palpitesBtn = document.getElementById('nav-palpites');
+  if (currentUser?.role === 'admin') {
+    if (bottomNav) bottomNav.style.display = 'none';
+  } else {
+    if (bottomNav) bottomNav.style.display = 'flex';
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    const bottomBtn = document.getElementById(`nav-${tab}`);
+    if (bottomBtn) bottomBtn.classList.add('active');
+  }
 
-  // Top tabs
-  document.querySelectorAll('.top-tab-btn').forEach(b => b.classList.remove('active'));
-  const topBtn = document.getElementById(`top-${tab}`);
-  if (topBtn) topBtn.classList.add('active');
-  else if (clickedBtn?.classList.contains('top-tab-btn')) clickedBtn.classList.add('active');
+  // Top tabs - esconder botão Palpites para admin
+  const topTabs = document.querySelector('.top-tabs');
+  const topPalpitesBtn = document.getElementById('top-palpites');
+  if (currentUser?.role === 'admin') {
+    if (topTabs) topTabs.style.display = 'none';
+  } else {
+    if (topTabs) topTabs.style.display = 'flex';
+    document.querySelectorAll('.top-tab-btn').forEach(b => b.classList.remove('active'));
+    const topBtn = document.getElementById(`top-${tab}`);
+    if (topBtn) topBtn.classList.add('active');
+    else if (clickedBtn?.classList.contains('top-tab-btn')) clickedBtn.classList.add('active');
+  }
 
   if (tab === 'ranking') loadRanking();
   if (tab === 'admin' && currentUser?.role === 'admin') loadPendingUsers();
