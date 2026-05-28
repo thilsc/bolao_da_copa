@@ -773,9 +773,8 @@ async function handleLogin(e) {
   msg.innerHTML = '';
 
   try {
-    const res = await fetch('/api/auth/login', {
+    const res = await apiFetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: document.getElementById('login-email').value.trim(),
         password: document.getElementById('login-password').value
@@ -818,9 +817,8 @@ async function handleRegister(e) {
   msg.innerHTML = '';
 
   try {
-    const res = await fetch('/api/auth/register', {
+    const res = await apiFetch('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: document.getElementById('reg-name').value.trim(),
         email: document.getElementById('reg-email').value.trim(),
@@ -842,7 +840,7 @@ async function handleRegister(e) {
 
 async function verifyEmailToken(token) {
   try {
-    const res = await fetch(`/api/auth/verify/${token}`);
+    const res = await apiFetch(`/api/auth/verify/${token}`);
     const data = await res.json();
     if (res.ok) {
       localStorage.setItem('bolao_token', data.token);
@@ -865,9 +863,8 @@ async function resendVerification() {
   const msg = document.getElementById('resend-msg');
   setLoading(btn, true);
   try {
-    const res = await fetch('/api/auth/resend', {
+    const res = await apiFetch('/api/auth/resend', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
     const data = await res.json();
@@ -895,18 +892,20 @@ async function startApp() {
   await Promise.all([loadMatches(), loadRanking()]);
 }
 
-// ── API helper ────────────────────────────────────────────────────
-function apiFetch(url, opts = {}) {
-  const token = localStorage.getItem('bolao_token');
-  return fetch(url, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      ...(opts.headers || {})
-    }
-  });
-}
+  const API_BASE_URL = 'https://bolao-da-copa.onrender.com';
+
+  function apiFetch(url, opts = {}) {
+    const token = localStorage.getItem('bolao_token');
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+    return fetch(fullUrl, {
+      ...opts,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(opts.headers || {})
+      }
+    });
+  }
 
 // ── Matches ───────────────────────────────────────────────────────
 async function loadMatches() {
