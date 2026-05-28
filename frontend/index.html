@@ -723,8 +723,8 @@ body {
     <button class="nav-btn" id="nav-ranking" onclick="switchTab('ranking',this)">
       <span class="nav-icon">🏆</span>Ranking
     </button>
-    <button class="nav-btn" id="nav-admin" onclick="switchTab('admin',this)">
-      <span class="nav-icon">⚙️</span>Admin
+    <button class="nav-btn" id="nav-palpites" onclick="switchTab('palpites',this)">
+      <span class="nav-icon">🎯</span>Palpites
     </button>
   </nav>
 </div>
@@ -1332,7 +1332,16 @@ function switchTab(tab, clickedBtn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
 
-  // Bottom nav
+  // Bottom nav - mostrar/ocultar botão Palpites baseado no papel do usuário
+  const palpitesBtn = document.getElementById('nav-palpites');
+  if (currentUser?.role === 'admin') {
+    // Admin não vê botão Palpites
+    if (palpitesBtn) palpitesBtn.style.display = 'none';
+  } else {
+    // Usuário normal vê botão Palpites
+    if (palpitesBtn) palpitesBtn.style.display = 'flex';
+  }
+  
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   const bottomBtn = document.getElementById(`nav-${tab}`);
   if (bottomBtn) bottomBtn.classList.add('active');
