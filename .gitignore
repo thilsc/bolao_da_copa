@@ -1,1 +1,1 @@
-Nothing needs to be added to .gitignore since only a source file (backend/server.js) was modified and there are no build artifacts, dependencies, or temporary files in the changes.
+Nothing needs to be added to .gitignore since the only change is adding a text file (`backend/matches_data_official.txt`) which appears to be source data rather than a build artifact, dependency, or temporary file.
