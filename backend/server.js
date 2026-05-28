@@ -111,8 +111,24 @@ app.use(xss()); // Prevenir ataques XSS
 app.use(hpp()); // Prevenir poluição de parâmetros HTTP
 
 // CORS configurado de forma segura
+const allowedOrigins = [
+  'https://bolaopbc.netlify.app',
+  'http://localhost:5173',
+  'http://localhost:3001',
+  process.env.APP_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.APP_URL || 'http://localhost:3001',
+  origin: function(origin, callback) {
+    // Permitir requisições sem origin (como mobile apps ou curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('netlify.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Não permitido pelo CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -787,10 +803,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Inicializar servidor - apenas em localhost por segurança
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`Servidor rodando em http://127.0.0.1:${PORT}`);
-  console.log('⚠️  Servidor configurado para aceitar conexões apenas do localhost');
+// Inicializar servidor - aceitar conexões de qualquer origem (necessário para Render)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor rodando em http://0.0.0.0:${PORT}`);
+  console.log('✅ Servidor configurado para aceitar conexões externas');
   createAdminUser();
 });
 
