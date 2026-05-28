@@ -334,7 +334,7 @@ app.post('/api/users', registerLimiter, async (req, res) => {
     const token = jwt.sign({ email: sanitizedEmail }, JWT_SECRET, { expiresIn: '24h' });
     
     // Salvar token de verificação no banco
-    db.prepare('UPDATE users SET verification_token = ?, token_expires = datetime("now", "+24 hours") WHERE email = ?').run(token, sanitizedEmail);
+    db.prepare("UPDATE users SET verification_token = ?, token_expires = datetime('now', '+24 hours') WHERE email = ?").run(token, sanitizedEmail);
     
     await sendVerificationEmail(sanitizedEmail, sanitizedName, token);
     
@@ -422,7 +422,7 @@ app.post('/api/users/resend-verification', async (req, res) => {
     const token = jwt.sign({ email: sanitizedEmail }, JWT_SECRET, { expiresIn: '24h' });
     
     // Salvar token de verificação no banco
-    db.prepare('UPDATE users SET verification_token = ?, token_expires = datetime("now", "+24 hours") WHERE email = ?').run(token, sanitizedEmail);
+    db.prepare("UPDATE users SET verification_token = ?, token_expires = datetime('now', '+24 hours') WHERE email = ?").run(token, sanitizedEmail);
     
     await sendVerificationEmail(sanitizedEmail, user.name, token);
     
