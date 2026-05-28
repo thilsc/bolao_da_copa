@@ -1,11 +1,1 @@
-```
-# Dependencies
-node_modules/
-
-# Environment variables
-.env
-
-# Build outputs
-backend/node_modules/
-
-```
+Nothing should be ignored based on the provided file changes. The only modified file is a source code file (`backend/server.js`), which should not be added to .gitignore.
