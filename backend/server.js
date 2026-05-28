@@ -374,7 +374,7 @@ app.get('/api/users/verify/:token', async (req, res) => {
     }
     
     // Atualizar usuário como verificado
-    db.prepare('UPDATE users SET verified = true, verification_token = NULL, token_expires = NULL WHERE id = ?').run(user.id);
+    db.prepare('UPDATE users SET is_verified = 1, verification_token = NULL, token_expires = NULL WHERE id = ?').run(user.id);
     
     // Gerar token de autenticação
     const authToken = jwt.sign(
@@ -414,7 +414,7 @@ app.post('/api/users/resend-verification', async (req, res) => {
       return res.status(400).json({ error: 'Email não encontrado' });
     }
     
-    if (user.verified) {
+    if (user.is_verified) {
       return res.status(400).json({ error: 'Email já verificado' });
     }
     
@@ -459,6 +459,14 @@ app.post('/api/login', authLimiter, (req, res) => {
     
     if (!validPassword) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+    
+    // Verificar se o email foi confirmado
+    if (!user.is_verified) {
+      return res.status(403).json({ 
+        error: 'Email não verificado. Por favor, verifique seu email antes de fazer login.',
+        resendVerification: true
+      });
     }
     
     const token = jwt.sign(
