@@ -634,7 +634,6 @@ body {
       <span style="font-size:1.5rem">⚽</span>
       <div class="logo">Bolão 2026</div>
       <div class="top-tabs">
-        <button class="top-tab-btn active" onclick="switchTab('palpites',this)" id="top-palpites">🎯 Palpites</button>
         <button class="top-tab-btn" onclick="switchTab('ranking',this)" id="top-ranking">🏆 Ranking</button>
         <button class="top-tab-btn" onclick="switchTab('admin',this)" id="top-admin">⚙️ Admin</button>
       </div>
@@ -650,7 +649,7 @@ body {
 
   <div class="app-content">
     <!-- Palpites tab -->
-    <div id="tab-palpites" class="tab-panel active">
+    <div id="tab-palpites" class="tab-panel">
       <div class="section-title">🎯 Meus Palpites</div>
       <div class="group-filter" id="group-filter"></div>
       <div class="matches-grid" id="matches-container">
@@ -659,7 +658,7 @@ body {
     </div>
 
     <!-- Ranking tab -->
-    <div id="tab-ranking" class="tab-panel">
+    <div id="tab-ranking" class="tab-panel active">
       <div class="section-title">🏆 Classificação Geral</div>
       <div class="ranking-list" id="ranking-container">
         <div class="empty-state"><div class="icon">⏳</div><p>Carregando...</p></div>
@@ -707,9 +706,6 @@ body {
 
   <!-- Bottom nav (mobile) -->
   <nav class="bottom-nav">
-    <button class="nav-btn active" id="nav-palpites" onclick="switchTab('palpites',this)">
-      <span class="nav-icon">🎯</span>Palpites
-    </button>
     <button class="nav-btn" id="nav-ranking" onclick="switchTab('ranking',this)">
       <span class="nav-icon">🏆</span>Ranking
     </button>
@@ -1293,6 +1289,7 @@ function switchTab(tab, clickedBtn) {
 
   if (tab === 'ranking') loadRanking();
   if (tab === 'admin' && currentUser?.role === 'admin') loadPendingUsers();
+  if (tab === 'palpites') loadMatches();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
