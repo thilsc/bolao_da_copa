@@ -1197,7 +1197,7 @@ function initializeMatches() {
     ['GRUPO J', 1, 'Áustria', 'Jordânia', 'AT', 'JO', '2026-06-17T04:00:00Z', 'scheduled'],
     ['GRUPO J', 2, 'Argentina', 'Áustria', 'AR', 'AT', '2026-06-22T17:00:00Z', 'scheduled'],
     ['GRUPO J', 2, 'Jordânia', 'Argélia', 'JO', 'DZ', '2026-06-23T03:00:00Z', 'scheduled'],
-    ['GRUPO J', 3, 'Argélia', 'Áustria' 'DZ', 'AT', '2026-06-28T02:00:00Z', 'scheduled'],
+    ['GRUPO J', 3, 'Argélia', 'Áustria', 'DZ', 'AT', '2026-06-28T02:00:00Z', 'scheduled'],
     ['GRUPO J', 3, 'Jordânia', 'Argentina', 'JO', 'AR', '2026-06-28T02:00:00Z', 'scheduled'],
     
     ['GRUPO K', 1, 'Portugal', 'RD Congo', 'PT', 'CD', '2026-06-17T17:00:00Z', 'scheduled'],
