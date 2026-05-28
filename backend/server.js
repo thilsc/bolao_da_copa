@@ -1150,7 +1150,7 @@ function initializeMatches() {
     
     ['GRUPO B', 1, 'Canadá', 'Bósnia-Herzegovina', 'CA', 'BA', '2026-06-12T19:00:00Z', 'scheduled'],
     ['GRUPO B', 1, 'Catar', 'Suíça', 'QA', 'CH', '2026-06-13T19:00:00Z', 'scheduled'],
-    ['GRUPO B', 2, 'Canadá Catar', ' CA', 'QA', '2026-06-18T22:00:00Z', 'scheduled'],
+    ['GRUPO B', 2, 'Canadá', 'Catar', 'CA', 'QA', '2026-06-18T22:00:00Z', 'scheduled'],
     ['GRUPO B', 2, 'Suíça', 'Bósnia-Herzegovina', 'CH', 'BA', '2026-06-18T19:00:00Z', 'scheduled'],
     ['GRUPO B', 3, 'Bósnia-Herzegovina', 'Catar', 'BA', 'QA', '2026-06-24T19:00:00Z', 'scheduled'],
     ['GRUPO B', 3, 'Suíça', 'Canadá', 'CH', 'CA', '2026-06-24T19:00:00Z', 'scheduled'],
