@@ -312,6 +312,7 @@ body {
   text-align: center;
 }
 .team-flag { font-size: 2rem; line-height: 1; }
+.flag-emoji::before { content: attr(data-flag); }
 .team-name { font-size: .8rem; font-weight: 700; color: var(--text); line-height: 1.2; }
 
 .score-vs {
@@ -908,6 +909,19 @@ async function startApp() {
   }
 
 // ── Matches ───────────────────────────────────────────────────────
+
+// Converte código de país (ex: 'BR', 'US') em emoji de bandeira
+function flagToEmoji(code) {
+  if (!code || typeof code !== 'string') return '';
+  const c = code.toUpperCase();
+  // Código especial para País de Gales
+  if (c === 'GB-WLS') return '🏴󠁧󠁢󠁷󠁬󠁳󠁿';
+  // Converte código ISO em emoji de bandeira usando Regional Indicator Symbols
+  const cp = [...c].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65);
+  if (cp.some(c => c < 0x1F1E6 || c > 0x1F1FF)) return '';
+  return String.fromCodePoint(...cp);
+}
+
 async function loadMatches() {
   try {
     const [mRes, pRes] = await Promise.all([
@@ -997,7 +1011,7 @@ function renderMatchCard(match) {
       ${actualScore}
       <div class="teams-row">
         <div class="team-block">
-          <div class="team-flag">${match.team_a_flag}</div>
+          <div class="team-flag flag-emoji" data-flag="${flagToEmoji(match.team_a_flag)}"></div>
           <div class="team-name">${match.team_a}</div>
         </div>
         <div class="score-vs">
@@ -1015,7 +1029,7 @@ function renderMatchCard(match) {
           </div>
         </div>
         <div class="team-block">
-          <div class="team-flag">${match.team_b_flag}</div>
+          <div class="team-flag flag-emoji" data-flag="${flagToEmoji(match.team_b_flag)}"></div>
           <div class="team-name">${match.team_b}</div>
         </div>
       </div>
@@ -1115,13 +1129,13 @@ async function loadRanking() {
 function buildAdminList() {
   document.getElementById('admin-matches-list').innerHTML = allMatches.map(m => `
     <div class="admin-match-row">
-      <span class="admin-team right">${m.team_a_flag} ${m.team_a}</span>
+      <span class="admin-team right">${flagToEmoji(m.team_a_flag)} ${m.team_a}</span>
       <input type="number" class="admin-score-input" min="0" id="adm-a-${m.id}"
              value="${m.score_a ?? ''}" placeholder="-">
       <span style="font-weight:700;color:var(--muted)">×</span>
       <input type="number" class="admin-score-input" min="0" id="adm-b-${m.id}"
              value="${m.score_b ?? ''}" placeholder="-">
-      <span class="admin-team">${m.team_b} ${m.team_b_flag}</span>
+      <span class="admin-team">${m.team_b} ${flagToEmoji(m.team_b_flag)}</span>
     </div>`).join('');
 }
 
