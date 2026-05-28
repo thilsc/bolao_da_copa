@@ -791,9 +791,70 @@ app.get('/health', (req, res) => {
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`Servidor rodando em http://127.0.0.1:${PORT}`);
   console.log('⚠️  Servidor configurado para aceitar conexões apenas do localhost');
-  initializeMatches();
   createAdminUser();
 });
+
+// Função para inicializar partidas da Copa do Mundo 2026 (fase de grupos)
+function initializeMatches() {
+  const count = db.prepare('SELECT COUNT(*) as total FROM matches').get();
+  if (count.total > 0) {
+    console.log('Partidas já inicializadas.');
+    return;
+  }
+
+  console.log('Inicializando partidas da Copa do Mundo 2026...');
+
+  // Dados das partidas da fase de grupos (exemplo simplificado)
+  const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const teams = {
+    A: ['Brasil', 'Croácia', 'Egito', 'Canadá'],
+    B: ['Argentina', 'México', 'Polônia', 'Arábia Saudita'],
+    C: ['França', 'Dinamarca', 'Tunísia', 'Austrália'],
+    D: ['Inglaterra', 'Irã', 'Senegal', 'EUA'],
+    E: ['Espanha', 'Alemanha', 'Japão', 'Costa Rica'],
+    F: ['Bélgica', 'Canadá', 'Marrocos', 'Croácia'],
+    G: ['Portugal', 'Gana', 'Uruguai', 'Coreia do Sul'],
+    H: ['Sérvia', 'Suíça', 'Camarões', 'Brasil']
+  };
+
+  const insertMatch = db.prepare(`
+    INSERT INTO matches (group_name, round, team_a, team_b, team_a_flag, team_b_flag, match_date, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const transaction = db.transaction((matches) => {
+    matches.forEach(match => insertMatch.run(...match));
+  });
+
+  const matchesToInsert = [];
+  const baseDate = new Date('2026-06-11T15:00:00Z');
+
+  groups.forEach((group, groupIndex) => {
+    const groupTeams = teams[group];
+    let matchIndex = 0;
+
+    // Gerar partidas de cada grupo (cada time joga contra os outros 3 vezes)
+    for (let i = 0; i < groupTeams.length; i++) {
+      for (let j = i + 1; j < groupTeams.length; j++) {
+        const matchDate = new Date(baseDate.getTime() + (groupIndex * 3 + matchIndex) * 24 * 60 * 60 * 1000);
+        matchesToInsert.push([
+          group,
+          matchIndex + 1,
+          groupTeams[i],
+          groupTeams[j],
+          groupTeams[i].toLowerCase(),
+          groupTeams[j].toLowerCase(),
+          matchDate.toISOString(),
+          'scheduled'
+        ]);
+        matchIndex++;
+      }
+    }
+  });
+
+  transaction(matchesToInsert);
+  console.log(`✅ ${matchesToInsert.length} partidas da fase de grupos inicializadas com sucesso!`);
+}
 
 // Função para criar usuário admin se não existir (com senha gerada aleatoriamente em produção)
 function createAdminUser() {
