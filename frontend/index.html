@@ -695,10 +695,24 @@ body {
       <div class="admin-section">
         <h3>🌐 Buscar Resultados Automáticos</h3>
         <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">
-          Requer a variável de ambiente <code>FOOTBALL_DATA_API_KEY</code>.
+          Atualiza apenas os placares dos jogos existentes. Não exclui dados.
         </p>
         <button class="btn btn-secondary" onclick="fetchFromAPI()" style="width:100%">
-          🔄 Atualizar via API
+          🔄 Atualizar Placares via API
+        </button>
+      </div>
+      
+      <div class="admin-section" style="border: 2px solid var(--danger);">
+        <h3 style="color: var(--danger);">⚠️ Sincronização Completa - Copa do Mundo FIFA 2026</h3>
+        <p style="font-size:.85rem;color:var(--danger);margin-bottom:12px;font-weight:600">
+          ATENÇÃO: Esta ação excluirá TODOS os jogos e palpites existentes antes de importar os novos dados!
+        </p>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px">
+          Use esta função apenas para iniciar um novo bolão do zero com os dados oficiais da Copa do Mundo FIFA 2026.
+          Requer a variável de ambiente <code>FOOTBALL_DATA_API_KEY</code>.
+        </p>
+        <button class="btn btn-danger" onclick="syncWorldCup2026()" style="width:100%">
+          ⚠️ SINCRONIZAR COPA DO MUNDO 2026 (EXCLUI TUDO)
         </button>
       </div>
     </div>
@@ -763,6 +777,17 @@ function showScreen(name) {
     document.getElementById(`${s}-screen`).classList.remove('active')
   );
   document.getElementById(`${name}-screen`).classList.add('active');
+}
+
+// Loading overlay functions
+function showLoading(message = 'Carregando...') {
+  const loading = document.getElementById('loading');
+  loading.querySelector('span').textContent = message;
+  loading.style.display = 'flex';
+}
+
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
 }
 
 // ── Auth tabs ─────────────────────────────────────────────────────
@@ -1192,6 +1217,37 @@ async function fetchFromAPI() {
     alert(res.ok ? d.message : d.error);
     if (res.ok) await loadMatches();
   } catch (_) { alert('Erro ao buscar dados da API.'); }
+}
+
+async function syncWorldCup2026() {
+  // Confirmação dupla para evitar exclusão acidental de dados
+  const confirm1 = confirm('⚠️ ATENÇÃO CRÍTICA!\n\nEsta ação irá:\n- EXCLUIR TODOS os jogos existentes\n- EXCLUIR TODOS os palpites dos usuários\n- Importar novos dados da Copa do Mundo FIFA 2026\n\nTem certeza que deseja continuar?');
+  
+  if (!confirm1) return;
+  
+  const confirm2 = confirm('🚨 ÚLTIMA CONFIRMAÇÃO!\n\nVocê está prestes a apagar PERMANENTEMENTE todos os dados do bolão.\n\nEsta ação NÃO PODE ser desfeita!\n\nClique em OK apenas se tiver certeza absoluta.');
+  
+  if (!confirm2) return;
+  
+  try {
+    showLoading('Sincronizando Copa do Mundo 2026...');
+    const res = await apiFetch('/api/matches/sync-world-cup-2026', { method: 'POST' });
+    const d = await res.json();
+    
+    hideLoading();
+    
+    if (res.ok) {
+      alert(`✅ ${d.message}\n\n${d.warning}`);
+      await loadMatches();
+      await loadRanking();
+    } else {
+      alert(`❌ Erro: ${d.error}`);
+    }
+  } catch (error) {
+    hideLoading();
+    alert('❌ Erro crítico ao sincronizar com a API. Verifique o console para mais detalhes.');
+    console.error('Erro na sincronização:', error);
+  }
 }
 
 // ── Admin: Pending Users Activation ───────────────────────────────
