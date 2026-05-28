@@ -89,7 +89,7 @@ const authLimiter = rateLimit({
 // Limitador específico para criação de usuários
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 3, // Apenas 3 registros por IP por hora
+  max: 5, // Apenas 5 registros por IP por hora
   message: { error: 'Muitos registros, tente novamente mais tarde' },
   standardHeaders: true,
   legacyHeaders: false
@@ -433,6 +433,35 @@ app.post('/api/users/resend-verification', async (req, res) => {
   }
 });
 
+// Registrar usuário sem validação
+app.post('/api/users/novalidate', registerLimiter, async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    
+    // Sanitizar inputs
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedEmail = email.toLowerCase().trim();
+    
+    const hashedPassword = bcrypt.hashSync(password, 12); // Aumentado para 12 rounds
+    const result = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(sanitizedName, sanitizedEmail, hashedPassword);
+    
+    // Gerar token de verificação
+    const token = jwt.sign({ email: sanitizedEmail }, JWT_SECRET, { expiresIn: '24h' });
+    
+    // Salvar token de verificação no banco
+    db.prepare("UPDATE users SET verification_token = ?, token_expires = datetime('now', '+24 hours') WHERE email = ?").run(token, sanitizedEmail);
+    
+    res.status(201).json({ id: result.lastInsertRowid, name: sanitizedName, email: sanitizedEmail });
+  } catch (error) {
+    if (error.message.includes('UNIQUE')) {
+      res.status(400).json({ error: 'Email já cadastrado' });
+    } else {
+      console.error('Erro ao registrar usuário:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+});
+
 // Login com rate limiting rigoroso
 app.post('/api/login', authLimiter, (req, res) => {
   try {
@@ -521,6 +550,7 @@ app.get('/api/users/pending-activation', authenticateToken, isAdmin, (req, res) 
       FROM users 
       WHERE is_verified = 0 
         AND created_at >= datetime('now', '-48 hours')
+		AND email <> 'admin@bolao.com'
       ORDER BY created_at DESC
     `).all();
     res.json(pendingUsers);
@@ -985,22 +1015,24 @@ app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter,
   }
 });
 
-app.post('/api/matches/resetAll', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
+//Excluir Todos os Palpites e Partidas
+app.post('/api/resetAll', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
   try {
-    console.log('⚠️ INICIANDO SINCRONIZAÇÃO COMPLETA DA COPA DO MUNDO 2026 - ESTE PROCESSO EXCLUIRÁ TODOS OS DADOS EXISTENTES');
+    console.log('⚠️ INICIANDO RESET COMPLETO DO BOLÃO - ESTE PROCESSO EXCLUIRÁ TODOS OS DADOS EXISTENTES');
 	
+	resetUsers();
     resetPredictionsAndMatches();
     initializeMatches();
 	
 	const insertedCount = db.prepare('SELECT COUNT(*) as total FROM matches').get();
 	
-    console.log(`✅ SINCRONIZAÇÃO COMPLETA CONCLUÍDA! ${insertedCount} jogos da Copa do Mundo FIFA 2026 importados.`);
+    console.log(`✅ RESET CONCLUÍDO! ${insertedCount} jogos da Copa do Mundo FIFA 2026 importados.`);
     console.log('⚠️ LEMBRETE: Todos os palpites e jogos anteriores foram EXCLUÍDOS permanentemente.');
     
     res.json({ 
       success: true, 
-      message: `Sincronização completa realizada! ${insertedCount} jogos da Copa do Mundo FIFA 2026 importados.`,
-      warning: 'Todos os dados anteriores (jogos e palpites) foram excluídos permanentemente.',
+      message: `Reset concluído. ${insertedCount} jogos da Copa do Mundo FIFA 2026 importados.`,
+      warning: 'Todos os dados anteriores (jogos, usuários e palpites) foram excluídos permanentemente.',
       matchesImported: insertedCount
     });
 	
@@ -1146,6 +1178,12 @@ function resetPredictionsAndMatches() {
   // Excluir todos os jogos
   console.log('🗑️ Excluindo todos os jogos existentes...');
   db.exec('DELETE FROM matches');
+}
+
+// Função para excluir todos os usuários
+function resetUsers() {
+  console.log('🗑️ Excluindo todos os usuários...');
+  db.exec('DELETE FROM users');
 }
 
 // Função para inicializar partidas da Copa do Mundo 2026 (fase de grupos) - Dados oficiais FIFA
