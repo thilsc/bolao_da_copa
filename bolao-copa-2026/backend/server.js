@@ -33,7 +33,8 @@ if (process.env.JWT_SECRET.length < 32) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || 'bolao-2026-dev-secret';
 
 // Middleware de segurança - Helmet (configura cabeçalhos HTTP seguros)
 app.use(helmet({
@@ -118,10 +119,9 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-// Configurar banco de dados SQLite
+// ── Database ──────────────────────────────────────────────────────────────────
 const db = new Database('./bolao.db');
 
-// Criar tabelas
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -163,96 +163,82 @@ db.exec(`
   );
 `);
 
-// Inicializar jogos da fase de grupos
-function initializeMatches() {
-  const count = db.prepare('SELECT COUNT(*) as count FROM matches').get().count;
-  
-  if (count === 0) {
-    // Dados dos times com emojis de bandeiras
-    const teams = {
-      'Brasil': '🇧🇷', 'Argentina': '🇦🇷', 'Alemanha': '🇩🇪', 'França': '🇫🇷',
-      'Espanha': '🇪🇸', 'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Itália': '🇮🇹', 'Portugal': '🇵🇹',
-      'Holanda': '🇳🇱', 'Bélgica': '🇧🇪', 'Croácia': '🇭🇷', 'Uruguai': '🇺🇾',
-      'México': '🇲🇽', 'Estados Unidos': '🇺🇸', 'Canadá': '🇨🇦', 'Colômbia': '🇨🇴',
-      'Chile': '🇨🇱', 'Peru': '🇵🇪', 'Equador': '🇪🇨', 'Japão': '🇯🇵',
-      'Coreia do Sul': '🇰🇷', 'Austrália': '🇦🇺', 'Irã': '🇮🇷', 'Arábia Saudita': '🇸🇦',
-      'Marrocos': '🇲🇦', 'Senegal': '🇸🇳', 'Nigéria': '🇳🇬', 'Camarões': '🇨🇲',
-      'Gana': '🇬🇭', 'Egito': '🇪🇬', 'Tunísia': '🇹🇳', 'Argélia': '🇩🇿',
-      'Suíça': '🇨🇭', 'Dinamarca': '🇩🇰', 'Suécia': '🇸🇪', 'Polônia': '🇵🇱',
-      'Ucrânia': '🇺🇦', 'República Tcheca': '🇨🇿', 'Sérvia': '🇷🇸', 'Grécia': '🇬🇷',
-      'Turquia': '🇹🇷', 'Rússia': '🇷🇺', 'Nova Zelândia': '🇳🇿', 'Costa Rica': '🇨🇷',
-      'Panamá': '🇵🇦', 'Jamaica': '🇯🇲', 'Venezuela': '🇻🇪', 'Bolívia': '🇧🇴',
-      'Paraguai': '🇵🇾', 'China': '🇨🇳', 'Índia': '🇮🇳', 'África do Sul': '🇿🇦'
-    };
+// Migrate existing users table (safe — fails silently if column already exists)
+['password_hash TEXT', 'is_verified INTEGER DEFAULT 0',
+ 'verification_token TEXT', 'token_expires DATETIME'].forEach(col => {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch (_) {}
+});
 
-    // Grupos da Copa 2026 (48 times, 12 grupos de 4)
-    const groups = [
-      { name: 'A', teams: ['Brasil', 'Cameroon', 'Jamaica', 'Suíça'] },
-      { name: 'B', teams: ['Argentina', 'Arábia Saudita', 'Polônia', 'África do Sul'] },
-      { name: 'C', teams: ['Alemanha', 'Egito', 'Coreia do Sul', 'México'] },
-      { name: 'D', teams: ['França', 'Austrália', 'Tunísia', 'Dinamarca'] },
-      { name: 'E', teams: ['Espanha', 'Costa Rica', 'Japão', 'Marrocos'] },
-      { name: 'F', teams: ['Bélgica', 'Canadá', 'Croácia', 'Marrocos'] },
-      { name: 'G', teams: ['Inglaterra', 'Irã', 'Estados Unidos', 'País de Gales'] },
-      { name: 'H', teams: ['Portugal', 'Gana', 'Uruguai', 'Coreia do Sul'] },
-      { name: 'I', teams: ['Itália', 'Paraguai', 'Nigéria', 'Nova Zelândia'] },
-      { name: 'J', teams: ['Holanda', 'Senegal', 'Equador', 'Qatar'] },
-      { name: 'K', teams: ['Colômbia', 'Grécia', 'Chile', 'Índia'] },
-      { name: 'L', teams: ['México', 'Mali', 'Islândia', 'Bolívia'] }
-    ];
+// ── Email ─────────────────────────────────────────────────────────────────────
+function getAppUrl() {
+  if (process.env.APP_URL) return process.env.APP_URL;
+  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  return 'http://localhost:5000';
+}
 
-    const insertMatch = db.prepare(`
-      INSERT INTO matches (group_name, round, team_a, team_b, team_a_flag, team_b_flag, match_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+function createTransporter() {
+  if (!process.env.SMTP_HOST) return null;
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+  });
+}
 
-    let matchId = 1;
-    const baseDate = new Date('2026-06-11T13:00:00-03:00');
+async function sendVerificationEmail(email, name, token) {
+  const url = `${getAppUrl()}/?verify=${token}`;
+  const transporter = createTransporter();
 
-    groups.forEach((group, groupIndex) => {
-      const groupTeams = group.teams;
-      
-      // Rodada 1: Time 0 vs Time 1, Time 2 vs Time 3
-      // Rodada 2: Time 0 vs Time 2, Time 1 vs Time 3
-      // Rodada 3: Time 0 vs Time 3, Time 1 vs Time 2
-      
-      const rounds = [
-        [[0, 1], [2, 3]],
-        [[0, 2], [1, 3]],
-        [[0, 3], [1, 2]]
-      ];
+  if (!transporter) {
+    console.log(`\n📧 [DEV] Link de verificação para ${email}:\n   ${url}\n`);
+    return;
+  }
 
-      rounds.forEach((round, roundIndex) => {
-        round.forEach(([teamAIndex, teamBIndex], matchIndex) => {
-          const teamA = groupTeams[teamAIndex];
-          const teamB = groupTeams[teamBIndex];
-          
-          // Calcular data e hora (GMT-3)
-          const matchDate = new Date(baseDate.getTime() + 
-            (groupIndex * 3 + roundIndex) * 24 * 60 * 60 * 1000 + 
-            matchIndex * 3 * 60 * 60 * 1000);
-          
-          const dateStr = matchDate.toISOString().replace('Z', '-03:00');
-          
-          insertMatch.run(
-            `Grupo ${group.name}`,
-            roundIndex + 1,
-            teamA,
-            teamB,
-            teams[teamA] || '🏳️',
-            teams[teamB] || '🏳️',
-            dateStr
-          );
-          matchId++;
-        });
-      });
-    });
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: email,
+    subject: '⚽ Confirme seu cadastro — Bolão Copa 2026',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+        <h2 style="color:#1e3c72">⚽ Bolão Copa 2026</h2>
+        <p>Olá, <strong>${name}</strong>!</p>
+        <p>Clique no botão abaixo para confirmar seu e-mail e acessar o bolão:</p>
+        <a href="${url}"
+           style="display:inline-block;background:#1e3c72;color:white;padding:14px 28px;
+                  border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0">
+          Confirmar E-mail
+        </a>
+        <p style="color:#666;font-size:13px">O link expira em 24 horas.<br>
+           Se você não solicitou o cadastro, ignore este e-mail.</p>
+      </div>`
+  });
+}
 
-    console.log(`${matchId - 1} jogos inicializados com sucesso!`);
+// ── Auth middleware ───────────────────────────────────────────────────────────
+function authenticate(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+  try {
+    const payload = jwt.verify(header.split(' ')[1], JWT_SECRET);
+    req.userId = payload.userId;
+    next();
+  } catch (_) {
+    return res.status(401).json({ error: 'Token inválido ou expirado' });
   }
 }
 
-// API Routes
+// ── Auth routes ───────────────────────────────────────────────────────────────
+
+// Register
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password)
+    return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios' });
+  if (password.length < 6)
+    return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres' });
 
 // Middleware de autenticação
 function authenticateToken(req, res, next) {
@@ -342,6 +328,11 @@ app.post('/api/users', registerLimiter, (req, res) => {
       console.error('Erro ao registrar usuário:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
+
+    await sendVerificationEmail(email, name, token);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -481,7 +472,6 @@ app.post('/api/predictions', authenticateToken, (req, res) => {
       return res.status(404).json({ error: 'Jogo não encontrado' });
     }
 
-    const matchDate = new Date(match.match_date);
     const now = new Date();
     const oneHourBefore = new Date(matchDate.getTime() - 60 * 60 * 1000);
 
@@ -506,7 +496,6 @@ app.post('/api/predictions', authenticateToken, (req, res) => {
         VALUES (?, ?, ?, ?, ?)
       `).run(parsedUserId, parsedMatchId, scoreA, scoreB, predictedResult);
     }
-
     res.json({ success: true });
   } catch (error) {
     console.error('Erro ao criar palpite:', error);
@@ -574,10 +563,7 @@ app.post('/api/matches/update-scores', authenticateToken, isAdmin, adminLimiter,
 app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
   try {
     const apiKey = process.env.FOOTBALL_DATA_API_KEY;
-    
-    if (!apiKey) {
-      return res.status(500).json({ error: 'API key não configurada' });
-    }
+    if (!apiKey) return res.status(500).json({ error: 'API key não configurada' });
 
     // Configurar timeout para a requisição
     const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
@@ -745,7 +731,8 @@ app.get('/api/matches/:matchId/predictions', authenticateToken, (req, res) => {
 
 // Job agendado para atualizar placares automaticamente (a cada 6 horas) - com timeout e tratamento de erros
 cron.schedule('0 */6 * * *', async () => {
-  console.log('Executando atualização automática de placares...');
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+  if (!apiKey) return;
   try {
     const apiKey = process.env.FOOTBALL_DATA_API_KEY;
     if (apiKey) {
