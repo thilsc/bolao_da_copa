@@ -1,0 +1,213 @@
+    // GROUP_A
+    ['GROUP_A', 1, 'Mexico', 'South Africa', 'MX', 'ZA', '2026-06-11T19:00:00Z', 'scheduled'],
+    ['GROUP_A', 1, 'South Korea', 'Czechia', 'KR', 'CZ', '2026-06-12T02:00:00Z', 'scheduled'],
+
+    // GROUP_B
+    ['GROUP_B', 1, 'Canada', 'Bosnia-Herzegovina', 'CA', 'BA', '2026-06-12T19:00:00Z', 'scheduled'],
+
+    // GROUP_D
+    ['GROUP_D', 1, 'United States', 'Paraguay', 'US', 'PY', '2026-06-13T01:00:00Z', 'scheduled'],
+
+    // GROUP_B
+    ['GROUP_B', 1, 'Qatar', 'Switzerland', 'QA', 'CH', '2026-06-13T19:00:00Z', 'scheduled'],
+
+    // GROUP_C
+    ['GROUP_C', 1, 'Brazil', 'Morocco', 'BR', 'MA', '2026-06-13T22:00:00Z', 'scheduled'],
+    ['GROUP_C', 1, 'Haiti', 'Scotland', 'HT', 'GB-SCT', '2026-06-14T01:00:00Z', 'scheduled'],
+
+    // GROUP_D
+    ['GROUP_D', 1, 'Australia', 'Turkey', 'AU', 'TR', '2026-06-14T04:00:00Z', 'scheduled'],
+
+    // GROUP_E
+    ['GROUP_E', 1, 'Germany', 'Curaçao', 'DE', 'CW', '2026-06-14T17:00:00Z', 'scheduled'],
+
+    // GROUP_F
+    ['GROUP_F', 1, 'Netherlands', 'Japan', 'NL', 'JP', '2026-06-14T20:00:00Z', 'scheduled'],
+
+    // GROUP_E
+    ['GROUP_E', 1, 'Ivory Coast', 'Ecuador', 'CI', 'EC', '2026-06-14T23:00:00Z', 'scheduled'],
+
+    // GROUP_F
+    ['GROUP_F', 1, 'Sweden', 'Tunisia', 'SE', 'TN', '2026-06-15T02:00:00Z', 'scheduled'],
+
+    // GROUP_H
+    ['GROUP_H', 1, 'Spain', 'Cape Verde Islands', 'ES', 'CV', '2026-06-15T16:00:00Z', 'scheduled'],
+
+    // GROUP_G
+    ['GROUP_G', 1, 'Belgium', 'Egypt', 'BE', 'EG', '2026-06-15T19:00:00Z', 'scheduled'],
+
+    // GROUP_H
+    ['GROUP_H', 1, 'Saudi Arabia', 'Uruguay', 'SA', 'UY', '2026-06-15T22:00:00Z', 'scheduled'],
+
+    // GROUP_G
+    ['GROUP_G', 1, 'Iran', 'New Zealand', 'IR', 'NZ', '2026-06-16T01:00:00Z', 'scheduled'],
+
+    // GROUP_I
+    ['GROUP_I', 1, 'France', 'Senegal', 'FR', 'SN', '2026-06-16T19:00:00Z', 'scheduled'],
+    ['GROUP_I', 1, 'Iraq', 'Norway', 'IQ', 'NO', '2026-06-16T22:00:00Z', 'scheduled'],
+
+    // GROUP_J
+    ['GROUP_J', 1, 'Argentina', 'Algeria', 'AR', 'DZ', '2026-06-17T01:00:00Z', 'scheduled'],
+    ['GROUP_J', 1, 'Austria', 'Jordan', 'AT', 'JO', '2026-06-17T04:00:00Z', 'scheduled'],
+
+    // GROUP_K
+    ['GROUP_K', 1, 'Portugal', 'Congo DR', 'PT', 'CD', '2026-06-17T17:00:00Z', 'scheduled'],
+
+    // GROUP_L
+    ['GROUP_L', 1, 'England', 'Croatia', 'GB-ENG', 'HR', '2026-06-17T20:00:00Z', 'scheduled'],
+    ['GROUP_L', 1, 'Ghana', 'Panama', 'GH', 'PA', '2026-06-17T23:00:00Z', 'scheduled'],
+
+    // GROUP_K
+    ['GROUP_K', 1, 'Uzbekistan', 'Colombia', 'UZ', 'CO', '2026-06-18T02:00:00Z', 'scheduled'],
+
+    // GROUP_A
+    ['GROUP_A', 2, 'Czechia', 'South Africa', 'CZ', 'ZA', '2026-06-18T16:00:00Z', 'scheduled'],
+
+    // GROUP_B
+    ['GROUP_B', 2, 'Switzerland', 'Bosnia-Herzegovina', 'CH', 'BA', '2026-06-18T19:00:00Z', 'scheduled'],
+    ['GROUP_B', 2, 'Canada', 'Qatar', 'CA', 'QA', '2026-06-18T22:00:00Z', 'scheduled'],
+
+    // GROUP_A
+    ['GROUP_A', 2, 'Mexico', 'South Korea', 'MX', 'KR', '2026-06-19T01:00:00Z', 'scheduled'],
+
+    // GROUP_D
+    ['GROUP_D', 2, 'United States', 'Australia', 'US', 'AU', '2026-06-19T19:00:00Z', 'scheduled'],
+
+    // GROUP_C
+    ['GROUP_C', 2, 'Scotland', 'Morocco', 'GB-SCT', 'MA', '2026-06-19T22:00:00Z', 'scheduled'],
+    ['GROUP_C', 2, 'Brazil', 'Haiti', 'BR', 'HT', '2026-06-20T00:30:00Z', 'scheduled'],
+
+    // GROUP_D
+    ['GROUP_D', 2, 'Turkey', 'Paraguay', 'TR', 'PY', '2026-06-20T03:00:00Z', 'scheduled'],
+
+    // GROUP_F
+    ['GROUP_F', 2, 'Netherlands', 'Sweden', 'NL', 'SE', '2026-06-20T17:00:00Z', 'scheduled'],
+
+    // GROUP_E
+    ['GROUP_E', 2, 'Germany', 'Ivory Coast', 'DE', 'CI', '2026-06-20T20:00:00Z', 'scheduled'],
+    ['GROUP_E', 2, 'Ecuador', 'Curaçao', 'EC', 'CW', '2026-06-21T00:00:00Z', 'scheduled'],
+
+    // GROUP_F
+    ['GROUP_F', 2, 'Tunisia', 'Japan', 'TN', 'JP', '2026-06-21T04:00:00Z', 'scheduled'],
+
+    // GROUP_H
+    ['GROUP_H', 2, 'Spain', 'Saudi Arabia', 'ES', 'SA', '2026-06-21T16:00:00Z', 'scheduled'],
+
+    // GROUP_G
+    ['GROUP_G', 2, 'Belgium', 'Iran', 'BE', 'IR', '2026-06-21T19:00:00Z', 'scheduled'],
+
+    // GROUP_H
+    ['GROUP_H', 2, 'Uruguay', 'Cape Verde Islands', 'UY', 'CV', '2026-06-21T22:00:00Z', 'scheduled'],
+
+    // GROUP_G
+    ['GROUP_G', 2, 'New Zealand', 'Egypt', 'NZ', 'EG', '2026-06-22T01:00:00Z', 'scheduled'],
+
+    // GROUP_J
+    ['GROUP_J', 2, 'Argentina', 'Austria', 'AR', 'AT', '2026-06-22T17:00:00Z', 'scheduled'],
+
+    // GROUP_I
+    ['GROUP_I', 2, 'France', 'Iraq', 'FR', 'IQ', '2026-06-22T21:00:00Z', 'scheduled'],
+    ['GROUP_I', 2, 'Norway', 'Senegal', 'NO', 'SN', '2026-06-23T00:00:00Z', 'scheduled'],
+
+    // GROUP_J
+    ['GROUP_J', 2, 'Jordan', 'Algeria', 'JO', 'DZ', '2026-06-23T03:00:00Z', 'scheduled'],
+
+    // GROUP_K
+    ['GROUP_K', 2, 'Portugal', 'Uzbekistan', 'PT', 'UZ', '2026-06-23T17:00:00Z', 'scheduled'],
+
+    // GROUP_L
+    ['GROUP_L', 2, 'England', 'Ghana', 'GB-ENG', 'GH', '2026-06-23T20:00:00Z', 'scheduled'],
+    ['GROUP_L', 2, 'Panama', 'Croatia', 'PA', 'HR', '2026-06-23T23:00:00Z', 'scheduled'],
+
+    // GROUP_K
+    ['GROUP_K', 2, 'Colombia', 'Congo DR', 'CO', 'CD', '2026-06-24T02:00:00Z', 'scheduled'],
+
+    // GROUP_B
+    ['GROUP_B', 3, 'Switzerland', 'Canada', 'CH', 'CA', '2026-06-24T19:00:00Z', 'scheduled'],
+    ['GROUP_B', 3, 'Bosnia-Herzegovina', 'Qatar', 'BA', 'QA', '2026-06-24T19:00:00Z', 'scheduled'],
+
+    // GROUP_C
+    ['GROUP_C', 3, 'Morocco', 'Haiti', 'MA', 'HT', '2026-06-24T22:00:00Z', 'scheduled'],
+    ['GROUP_C', 3, 'Scotland', 'Brazil', 'GB-SCT', 'BR', '2026-06-24T22:00:00Z', 'scheduled'],
+
+    // GROUP_A
+    ['GROUP_A', 3, 'Czechia', 'Mexico', 'CZ', 'MX', '2026-06-25T01:00:00Z', 'scheduled'],
+    ['GROUP_A', 3, 'South Africa', 'South Korea', 'ZA', 'KR', '2026-06-25T01:00:00Z', 'scheduled'],
+
+    // GROUP_E
+    ['GROUP_E', 3, 'Ecuador', 'Germany', 'EC', 'DE', '2026-06-25T20:00:00Z', 'scheduled'],
+    ['GROUP_E', 3, 'Curaçao', 'Ivory Coast', 'CW', 'CI', '2026-06-25T20:00:00Z', 'scheduled'],
+
+    // GROUP_F
+    ['GROUP_F', 3, 'Tunisia', 'Netherlands', 'TN', 'NL', '2026-06-25T23:00:00Z', 'scheduled'],
+    ['GROUP_F', 3, 'Japan', 'Sweden', 'JP', 'SE', '2026-06-25T23:00:00Z', 'scheduled'],
+
+    // GROUP_D
+    ['GROUP_D', 3, 'Turkey', 'United States', 'TR', 'US', '2026-06-26T02:00:00Z', 'scheduled'],
+    ['GROUP_D', 3, 'Paraguay', 'Australia', 'PY', 'AU', '2026-06-26T02:00:00Z', 'scheduled'],
+
+    // GROUP_I
+    ['GROUP_I', 3, 'Norway', 'France', 'NO', 'FR', '2026-06-26T19:00:00Z', 'scheduled'],
+    ['GROUP_I', 3, 'Senegal', 'Iraq', 'SN', 'IQ', '2026-06-26T19:00:00Z', 'scheduled'],
+
+    // GROUP_H
+    ['GROUP_H', 3, 'Uruguay', 'Spain', 'UY', 'ES', '2026-06-27T00:00:00Z', 'scheduled'],
+    ['GROUP_H', 3, 'Cape Verde Islands', 'Saudi Arabia', 'CV', 'SA', '2026-06-27T00:00:00Z', 'scheduled'],
+
+    // GROUP_G
+    ['GROUP_G', 3, 'New Zealand', 'Belgium', 'NZ', 'BE', '2026-06-27T03:00:00Z', 'scheduled'],
+    ['GROUP_G', 3, 'Egypt', 'Iran', 'EG', 'IR', '2026-06-27T03:00:00Z', 'scheduled'],
+
+    // GROUP_L
+    ['GROUP_L', 3, 'Panama', 'England', 'PA', 'GB-ENG', '2026-06-27T21:00:00Z', 'scheduled'],
+    ['GROUP_L', 3, 'Croatia', 'Ghana', 'HR', 'GH', '2026-06-27T21:00:00Z', 'scheduled'],
+
+    // GROUP_K
+    ['GROUP_K', 3, 'Colombia', 'Portugal', 'CO', 'PT', '2026-06-27T23:30:00Z', 'scheduled'],
+    ['GROUP_K', 3, 'Congo DR', 'Uzbekistan', 'CD', 'UZ', '2026-06-27T23:30:00Z', 'scheduled'],
+
+    // GROUP_J
+    ['GROUP_J', 3, 'Jordan', 'Argentina', 'JO', 'AR', '2026-06-28T02:00:00Z', 'scheduled'],
+    ['GROUP_J', 3, 'Algeria', 'Austria', 'DZ', 'AT', '2026-06-28T02:00:00Z', 'scheduled'],
+
+    // Fase Eliminatória
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+
+    // Quartas de Final
+    ['', 5, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 5, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 5, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 5, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+
+    // Semifinais
+    ['', 6, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+    ['', 6, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+
+    // Fase Eliminatória
+    ['', 4, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled'],
+
+    // Final
+    ['', 8, 'None', 'None', '', '', '2026-07-19T19:00:00Z', 'scheduled']
