@@ -232,14 +232,6 @@ function authenticate(req, res, next) {
 
 // ── Auth routes ───────────────────────────────────────────────────────────────
 
-// Register
-app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password)
-    return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios' });
-  if (password.length < 6)
-    return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres' });
-
 // Middleware de autenticação
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -287,7 +279,7 @@ function isStrongPassword(password) {
 }
 
 // Registrar usuário
-app.post('/api/users', registerLimiter, (req, res) => {
+app.post('/api/users', registerLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
     
@@ -320,6 +312,15 @@ app.post('/api/users', registerLimiter, (req, res) => {
     
     const hashedPassword = bcrypt.hashSync(password, 12); // Aumentado para 12 rounds
     const result = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(sanitizedName, sanitizedEmail, hashedPassword);
+    
+    // Gerar token de verificação
+    const token = jwt.sign({ email: sanitizedEmail }, JWT_SECRET, { expiresIn: '24h' });
+    
+    // Salvar token de verificação no banco
+    db.prepare('UPDATE users SET verification_token = ?, token_expires = datetime("now", "+24 hours") WHERE email = ?').run(token, sanitizedEmail);
+    
+    await sendVerificationEmail(sanitizedEmail, sanitizedName, token);
+    
     res.status(201).json({ id: result.lastInsertRowid, name: sanitizedName, email: sanitizedEmail });
   } catch (error) {
     if (error.message.includes('UNIQUE')) {
@@ -328,11 +329,6 @@ app.post('/api/users', registerLimiter, (req, res) => {
       console.error('Erro ao registrar usuário:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
-
-    await sendVerificationEmail(email, name, token);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
 });
 
