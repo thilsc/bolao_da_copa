@@ -461,8 +461,8 @@ app.post('/api/login', authLimiter, (req, res) => {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
     
-    // Verificar se o email foi confirmado
-    if (!user.is_verified) {
+    // Verificar se o email foi confirmado (exceto para admin)
+    if (!user.is_verified && user.email !== 'admin@bolao.com') {
       return res.status(403).json({ 
         error: 'Email não verificado. Por favor, verifique seu email antes de fazer login.',
         resendVerification: true
@@ -510,6 +510,77 @@ app.get('/api/users', authenticateToken, isAdmin, (req, res) => {
   // Não retornar senhas
   const users = db.prepare('SELECT id, name, email, role, created_at FROM users ORDER BY name').all();
   res.json(users);
+});
+
+// Listar usuários pendentes de ativação das últimas 48h (apenas admin)
+app.get('/api/users/pending-activation', authenticateToken, isAdmin, (req, res) => {
+  try {
+    // Buscar usuários não verificados cadastrados nas últimas 48 horas
+    const pendingUsers = db.prepare(`
+      SELECT id, name, email, role, created_at 
+      FROM users 
+      WHERE is_verified = 0 
+        AND created_at >= datetime('now', '-48 hours')
+      ORDER BY created_at DESC
+    `).all();
+    res.json(pendingUsers);
+  } catch (error) {
+    console.error('Erro ao listar usuários pendentes:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Ativar usuário manualmente (apenas admin)
+app.post('/api/users/activate/:userId', authenticateToken, isAdmin, (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Validar userId como número inteiro
+    const parsedUserId = parseInt(userId, 10);
+    if (isNaN(parsedUserId) || parsedUserId <= 0) {
+      return res.status(400).json({ error: 'ID de usuário inválido' });
+    }
+    
+    // Verificar se o usuário existe
+    const user = db.prepare('SELECT id, email, is_verified FROM users WHERE id = ?').get(parsedUserId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    
+    if (user.is_verified) {
+      return res.status(400).json({ error: 'Usuário já está ativado' });
+    }
+    
+    // Ativar usuário
+    db.prepare('UPDATE users SET is_verified = 1, verification_token = NULL, token_expires = NULL WHERE id = ?').run(parsedUserId);
+    
+    res.json({ message: 'Usuário ativado com sucesso', userId: parsedUserId });
+  } catch (error) {
+    console.error('Erro ao ativar usuário:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Ativar todos os usuários pendentes das últimas 48h (apenas admin)
+app.post('/api/users/activate-all-pending', authenticateToken, isAdmin, (req, res) => {
+  try {
+    // Ativar todos os usuários não verificados das últimas 48 horas
+    const result = db.prepare(`
+      UPDATE users 
+      SET is_verified = 1, verification_token = NULL, token_expires = NULL
+      WHERE is_verified = 0 
+        AND created_at >= datetime('now', '-48 hours')
+    `).run();
+    
+    res.json({ 
+      message: `Usuários ativados com sucesso`,
+      activatedCount: result.changes
+    });
+  } catch (error) {
+    console.error('Erro ao ativar usuários pendentes:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
 // Listar todos os jogos (com validação de parâmetros)
