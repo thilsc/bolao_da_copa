@@ -874,7 +874,7 @@ async function fetchAndUpdateMatches() {
   try {
     console.log('🔄 Buscando resultados da API football-data.org...');
     
-    const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
+    const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches?season=2026', {
       headers: { 
         'X-Auth-Token': apiKey,
         'Accept': 'application/json'
@@ -999,7 +999,7 @@ app.post('/api/matches/sync-world-cup-2026', authenticateToken, isAdmin, adminLi
     // Buscar dados da API Football-Data.org para a Copa do Mundo FIFA 2026
     console.log('📡 Buscando jogos da Copa do Mundo FIFA 2026 na API...');
     
-    const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
+    const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches?season=2026', {
       headers: { 
         'X-Auth-Token': apiKey,
         'Accept': 'application/json'
