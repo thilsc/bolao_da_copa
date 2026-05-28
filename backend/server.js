@@ -744,6 +744,7 @@ app.get('/api/ranking', (req, res) => {
       SELECT u.id, u.name, COALESCE(SUM(p.points), 0) as total_points, COUNT(p.id) as predictions_count
       FROM users u
       LEFT JOIN predictions p ON u.id = p.user_id
+      WHERE u.role != 'admin'
       GROUP BY u.id, u.name
       ORDER BY total_points DESC, predictions_count ASC, u.name ASC
     `).all();
