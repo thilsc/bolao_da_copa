@@ -348,6 +348,90 @@ app.post('/api/users', registerLimiter, async (req, res) => {
   }
 });
 
+// Verificar email do usuário
+app.get('/api/users/verify/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    // Verificar token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({ error: 'Token inválido ou expirado' });
+    }
+    
+    const user = db.prepare('SELECT * FROM users WHERE email = ? AND verification_token = ?').get(decoded.email, token);
+    
+    if (!user) {
+      return res.status(400).json({ error: 'Token inválido' });
+    }
+    
+    // Verificar se o token expirou
+    if (new Date(user.token_expires) < new Date()) {
+      return res.status(400).json({ error: 'Token expirado' });
+    }
+    
+    // Atualizar usuário como verificado
+    db.prepare('UPDATE users SET verified = true, verification_token = NULL, token_expires = NULL WHERE id = ?').run(user.id);
+    
+    // Gerar token de autenticação
+    const authToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    res.json({ 
+      token: authToken, 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role 
+      } 
+    });
+  } catch (error) {
+    console.error('Erro ao verificar email:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Reenviar email de verificação
+app.post('/api/users/resend-verification', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
+    
+    const sanitizedEmail = email.toLowerCase().trim();
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(sanitizedEmail);
+    
+    if (!user) {
+      return res.status(400).json({ error: 'Email não encontrado' });
+    }
+    
+    if (user.verified) {
+      return res.status(400).json({ error: 'Email já verificado' });
+    }
+    
+    // Gerar novo token
+    const token = jwt.sign({ email: sanitizedEmail }, JWT_SECRET, { expiresIn: '24h' });
+    
+    // Salvar token de verificação no banco
+    db.prepare('UPDATE users SET verification_token = ?, token_expires = datetime("now", "+24 hours") WHERE email = ?').run(token, sanitizedEmail);
+    
+    await sendVerificationEmail(sanitizedEmail, user.name, token);
+    
+    res.json({ message: 'Email de verificação reenviado' });
+  } catch (error) {
+    console.error('Erro ao reenviar email de verificação:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // Login com rate limiting rigoroso
 app.post('/api/login', authLimiter, (req, res) => {
   try {
@@ -394,6 +478,20 @@ app.post('/api/login', authLimiter, (req, res) => {
     });
   } catch (error) {
     console.error('Erro no login:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Obter dados do usuário autenticado (me)
+app.get('/api/users/me', authenticateToken, (req, res) => {
+  try {
+    const user = db.prepare('SELECT id, name, email, role, created_at FROM users WHERE id = ?').get(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('Erro ao obter usuário:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
