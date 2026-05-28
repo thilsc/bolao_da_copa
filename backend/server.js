@@ -985,6 +985,33 @@ app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter,
   }
 });
 
+app.post('/api/matches/resetAll', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
+  try {
+    console.log('⚠️ INICIANDO SINCRONIZAÇÃO COMPLETA DA COPA DO MUNDO 2026 - ESTE PROCESSO EXCLUIRÁ TODOS OS DADOS EXISTENTES');
+	
+    resetPredictionsAndMatches();
+    initializeMatches();
+	
+	const insertedCount = db.prepare('SELECT COUNT(*) as total FROM matches').get();
+	
+    console.log(`✅ SINCRONIZAÇÃO COMPLETA CONCLUÍDA! ${insertedCount} jogos da Copa do Mundo FIFA 2026 importados.`);
+    console.log('⚠️ LEMBRETE: Todos os palpites e jogos anteriores foram EXCLUÍDOS permanentemente.');
+    
+    res.json({ 
+      success: true, 
+      message: `Sincronização completa realizada! ${insertedCount} jogos da Copa do Mundo FIFA 2026 importados.`,
+      warning: 'Todos os dados anteriores (jogos e palpites) foram excluídos permanentemente.',
+      matchesImported: insertedCount
+    });
+	
+  } catch (error) {
+    console.error('❌ Erro crítico na sincronização da Copa do Mundo 2026:', error.message);
+    if (error.response) {
+      return res.status(error.response.status).json({ error: `Erro HTTP ${error.response.status}: ${error.response.statusText}` });
+    }
+  }
+});
+
 // Endpoint para sincronizar completamente com a API da Copa do Mundo FIFA 2026
 // ATENÇÃO: Este endpoint EXCLUI todos os jogos e palpites existentes antes de importar os novos dados
 app.post('/api/matches/sync-world-cup-2026', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
@@ -1016,13 +1043,8 @@ app.post('/api/matches/sync-world-cup-2026', authenticateToken, isAdmin, adminLi
     const apiMatches = response.data.matches;
     console.log(`📊 Encontrados ${apiMatches.length} jogos na API`);
 
-    // Excluir todos os palpites primeiro (devido à chave estrangeira)
-    console.log('🗑️ Excluindo todos os palpites existentes...');
-    db.exec('DELETE FROM predictions');
-    
-    // Excluir todos os jogos
-    console.log('🗑️ Excluindo todos os jogos existentes...');
-    db.exec('DELETE FROM matches');
+    // Excluir todos os palpites e jogos
+    resetPredictionsAndMatches();
     
     // Preparar statements para inserção
     const insertMatch = db.prepare(`
@@ -1113,11 +1135,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor rodando em http://0.0.0.0:${PORT}`);
   console.log('✅ Servidor configurado para aceitar conexões externas');
   createAdminUser();
-  resetPredictionsAndMatches(); //temporário
   initializeMatches();
 });
 
-// Função para inicializar partidas da Copa do Mundo 2026 (fase de grupos) - Dados oficiais FIFA
+// Função para excluir todas as partidas e todos os palpites
 function resetPredictionsAndMatches() {
   console.log('🗑️ Excluindo todos os palpites existentes...');
   db.exec('DELETE FROM predictions');
