@@ -906,6 +906,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor rodando em http://0.0.0.0:${PORT}`);
   console.log('✅ Servidor configurado para aceitar conexões externas');
   createAdminUser();
+  initializeMatches();
 });
 
 // Função para inicializar partidas da Copa do Mundo 2026 (fase de grupos)
