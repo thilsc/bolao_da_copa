@@ -1,4 +1,7 @@
 ```
+# Patch files
+*.patch
+
 # Database
 bolao.db
 
