@@ -970,7 +970,7 @@ async function fetchAndUpdateMatches() {
   }
 }
 
-// Endpoint para atualizar manualmente os resultados da API
+// Endpoint para atualizar manualmente os resultados da API (apenas atualiza placares, não exclui dados)
 app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
   try {
     console.log('🔄 Solicitação manual para buscar resultados da API...');
@@ -982,6 +982,124 @@ app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter,
       return res.status(504).json({ error: 'Timeout ao conectar com API externa' });
     }
     res.status(500).json({ error: 'Erro ao consumir API externa' });
+  }
+});
+
+// Endpoint para sincronizar completamente com a API da Copa do Mundo FIFA 2026
+// ATENÇÃO: Este endpoint EXCLUI todos os jogos e palpites existentes antes de importar os novos dados
+app.post('/api/matches/sync-world-cup-2026', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
+  try {
+    console.log('⚠️ INICIANDO SINCRONIZAÇÃO COMPLETA DA COPA DO MUNDO 2026 - ESTE PROCESSO EXCLUIRÁ TODOS OS DADOS EXISTENTES');
+    
+    const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ error: 'API key não configurada. Configure FOOTBALL_DATA_API_KEY no arquivo .env' });
+    }
+    
+    // Buscar dados da API Football-Data.org para a Copa do Mundo FIFA 2026
+    console.log('📡 Buscando jogos da Copa do Mundo FIFA 2026 na API...');
+    
+    const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
+      headers: { 
+        'X-Auth-Token': apiKey,
+        'Accept': 'application/json'
+      },
+      timeout: 30000,
+      maxRedirects: 3,
+      validateStatus: (status) => status === 200
+    });
+
+    if (!response.data || !response.data.matches) {
+      return res.status(500).json({ error: 'Resposta inválida da API' });
+    }
+
+    const apiMatches = response.data.matches;
+    console.log(`📊 Encontrados ${apiMatches.length} jogos na API`);
+
+    // Excluir todos os palpites primeiro (devido à chave estrangeira)
+    console.log('🗑️ Excluindo todos os palpites existentes...');
+    db.exec('DELETE FROM predictions');
+    
+    // Excluir todos os jogos
+    console.log('🗑️ Excluindo todos os jogos existentes...');
+    db.exec('DELETE FROM matches');
+    
+    // Preparar statements para inserção
+    const insertMatch = db.prepare(`
+      INSERT INTO matches (group_name, round, team_a, team_b, team_a_flag, team_b_flag, match_date, status, score_a, score_b)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    // Usar transação para garantir atomicidade
+    const transaction = db.transaction(() => {
+      apiMatches.forEach(match => {
+        const homeTeam = sanitizeInput(match.homeTeam.name);
+        const awayTeam = sanitizeInput(match.awayTeam.name);
+        const groupName = match.group || match.stage || 'TBD';
+        const round = match.matchday || 1;
+        const homeFlag = match.homeTeam.area?.code || 'XX';
+        const awayFlag = match.awayTeam.area?.code || 'XX';
+        const matchDate = match.utcDate || new Date().toISOString();
+        
+        // Determinar status e placar
+        let status = 'scheduled';
+        let scoreA = null;
+        let scoreB = null;
+        
+        if (match.status === 'FINISHED' && match.score.fullTime.home !== null && match.score.fullTime.away !== null) {
+          status = 'finished';
+          scoreA = parseInt(match.score.fullTime.home, 10);
+          scoreB = parseInt(match.score.fullTime.away, 10);
+          
+          if (isNaN(scoreA) || isNaN(scoreB) || scoreA < 0 || scoreB < 0) {
+            scoreA = null;
+            scoreB = null;
+            status = 'scheduled';
+          }
+        } else if (match.status === 'IN_PLAY' || match.status === 'PAUSED') {
+          status = 'live';
+          if (match.score.fullTime.home !== null && match.score.fullTime.away !== null) {
+            scoreA = parseInt(match.score.fullTime.home, 10);
+            scoreB = parseInt(match.score.fullTime.away, 10);
+          }
+        }
+        
+        insertMatch.run(
+          groupName,
+          round,
+          homeTeam,
+          awayTeam,
+          homeFlag,
+          awayFlag,
+          matchDate,
+          status,
+          scoreA,
+          scoreB
+        );
+      });
+    });
+    
+    transaction();
+    
+    const insertedCount = apiMatches.length;
+    console.log(`✅ SINCRONIZAÇÃO COMPLETA CONCLUÍDA! ${insertedCount} jogos da Copa do Mundo FIFA 2026 importados.`);
+    console.log('⚠️ LEMBRETE: Todos os palpites e jogos anteriores foram EXCLUÍDOS permanentemente.');
+    
+    res.json({ 
+      success: true, 
+      message: `Sincronização completa realizada! ${insertedCount} jogos da Copa do Mundo FIFA 2026 importados.`,
+      warning: 'Todos os dados anteriores (jogos e palpites) foram excluídos permanentemente.',
+      matchesImported: insertedCount
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro crítico na sincronização da Copa do Mundo 2026:', error.message);
+    if (error.code === 'ECONNABORTED') {
+      return res.status(504).json({ error: 'Timeout ao conectar com API externa' });
+    } else if (error.response) {
+      return res.status(error.response.status).json({ error: `Erro HTTP ${error.response.status}: ${error.response.statusText}` });
+    }
+    res.status(500).json({ error: 'Erro crítico ao sincronizar com API externa' });
   }
 });
 
