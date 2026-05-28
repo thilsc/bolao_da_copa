@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const xss = require('xss-clean');
 const hpp = require('hpp');
 const path = require('path');
+const nodemailer = require('nodemailer');
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -669,68 +670,6 @@ app.post('/api/matches/update-scores', authenticateToken, isAdmin, adminLimiter,
   }
 });
 
-// Consumir API externa (football-data.org) - apenas admin - com timeout e validações
-app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
-  try {
-    const apiKey = process.env.FOOTBALL_DATA_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: 'API key não configurada' });
-
-    // Configurar timeout para a requisição
-    const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
-      headers: { 'X-Auth-Token': apiKey },
-      timeout: 10000, // 10 segundos de timeout
-      maxRedirects: 3,
-      validateStatus: (status) => status === 200
-    });
-
-    if (!response.data || !response.data.matches) {
-      return res.status(500).json({ error: 'Resposta inválida da API' });
-    }
-
-    const matches = response.data.matches;
-    const updateMatch = db.prepare(`
-      UPDATE matches 
-      SET score_a = ?, score_b = ?, status = 'finished', updated_at = CURRENT_TIMESTAMP
-      WHERE team_a = ? AND team_b = ?
-    `);
-
-    let updatedCount = 0;
-    
-    // Usar transação para garantir atomicidade
-    const transaction = db.transaction(() => {
-      matches.forEach(match => {
-        if (match.status === 'FINISHED' && match.score.fullTime.home !== null) {
-          const homeScore = parseInt(match.score.fullTime.home, 10);
-          const awayScore = parseInt(match.score.fullTime.away, 10);
-          
-          if (!isNaN(homeScore) && !isNaN(awayScore) && homeScore >= 0 && awayScore >= 0) {
-            updateMatch.run(
-              homeScore,
-              awayScore,
-              sanitizeInput(match.homeTeam.name),
-              sanitizeInput(match.awayTeam.name)
-            );
-            updatedCount++;
-          }
-        }
-      });
-    });
-    
-    transaction();
-
-    // Calcular pontos
-    calculatePoints();
-
-    res.json({ success: true, message: `${updatedCount} resultados atualizados da API` });
-  } catch (error) {
-    console.error('Erro ao buscar dados da API:', error.message);
-    if (error.code === 'ECONNABORTED') {
-      return res.status(504).json({ error: 'Timeout ao conectar com API externa' });
-    }
-    res.status(500).json({ error: 'Erro ao consumir API externa' });
-  }
-});
-
 // Função para calcular pontos (com transação e tratamento de erros)
 function calculatePoints() {
   try {
@@ -841,58 +780,128 @@ app.get('/api/matches/:matchId/predictions', authenticateToken, (req, res) => {
 
 // Job agendado para atualizar placares automaticamente (a cada 6 horas) - com timeout e tratamento de erros
 cron.schedule('0 */6 * * *', async () => {
+  await fetchAndUpdateMatches();
+});
+
+// Função para buscar e atualizar resultados da API football-data.org
+async function fetchAndUpdateMatches() {
   const apiKey = process.env.FOOTBALL_DATA_API_KEY;
-  if (!apiKey) return;
+  if (!apiKey) {
+    console.log('⚠️  API key não configurada. Pulando atualização automática.');
+    return;
+  }
+  
   try {
-    const apiKey = process.env.FOOTBALL_DATA_API_KEY;
-    if (apiKey) {
-      const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
-        headers: { 'X-Auth-Token': apiKey },
-        timeout: 10000, // 10 segundos de timeout
-        maxRedirects: 3
-      });
+    console.log('🔄 Buscando resultados da API football-data.org...');
+    
+    const response = await axios.get('https://api.football-data.org/v4/competitions/WC/matches', {
+      headers: { 
+        'X-Auth-Token': apiKey,
+        'Accept': 'application/json'
+      },
+      timeout: 15000, // 15 segundos de timeout
+      maxRedirects: 3,
+      validateStatus: (status) => status === 200
+    });
 
-      if (!response.data || !response.data.matches) {
-        console.error('Resposta inválida da API no job agendado');
-        return;
-      }
+    if (!response.data || !response.data.matches) {
+      console.error('❌ Resposta inválida da API no job agendado');
+      return;
+    }
 
-      const matches = response.data.matches;
-      const updateMatch = db.prepare(`
-        UPDATE matches 
-        SET score_a = ?, score_b = ?, status = 'finished', updated_at = CURRENT_TIMESTAMP
-        WHERE team_a = ? AND team_b = ?
-      `);
-
-      let updatedCount = 0;
-      
-      // Usar transação para garantir atomicidade
-      const transaction = db.transaction(() => {
-        matches.forEach(match => {
-          if (match.status === 'FINISHED' && match.score.fullTime.home !== null) {
-            const homeScore = parseInt(match.score.fullTime.home, 10);
-            const awayScore = parseInt(match.score.fullTime.away, 10);
+    const apiMatches = response.data.matches;
+    console.log(`📊 Encontrados ${apiMatches.length} jogos na API`);
+    
+    // Filtrar apenas jogos finalizados
+    const finishedMatches = apiMatches.filter(m => m.status === 'FINISHED');
+    console.log(`✅ ${finishedMatches.length} jogos finalizados encontrados`);
+    
+    let updatedCount = 0;
+    let insertedCount = 0;
+    
+    const updateMatch = db.prepare(`
+      UPDATE matches 
+      SET score_a = ?, score_b = ?, status = 'finished', updated_at = CURRENT_TIMESTAMP
+      WHERE team_a = ? AND team_b = ?
+    `);
+    
+    const insertMatch = db.prepare(`
+      INSERT OR IGNORE INTO matches (group_name, round, team_a, team_b, team_a_flag, team_b_flag, match_date, status, score_a, score_b)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'finished', ?, ?)
+    `);
+    
+    // Usar transação para garantir atomicidade
+    const transaction = db.transaction(() => {
+      finishedMatches.forEach(match => {
+        if (match.score.fullTime.home !== null && match.score.fullTime.away !== null) {
+          const homeScore = parseInt(match.score.fullTime.home, 10);
+          const awayScore = parseInt(match.score.fullTime.away, 10);
+          
+          if (!isNaN(homeScore) && !isNaN(awayScore) && homeScore >= 0 && awayScore >= 0) {
+            const homeTeam = sanitizeInput(match.homeTeam.name);
+            const awayTeam = sanitizeInput(match.awayTeam.name);
             
-            if (!isNaN(homeScore) && !isNaN(awayScore) && homeScore >= 0 && awayScore >= 0) {
-              updateMatch.run(
+            // Tentar atualizar primeiro
+            const result = updateMatch.run(homeScore, awayScore, homeTeam, awayTeam);
+            
+            // Se não atualizou nenhum registro, tentar inserir
+            if (result.changes === 0) {
+              // Extrair grupo e rodada dos dados da API se disponível
+              const groupName = match.group || 'TBD';
+              const round = match.matchday || 1;
+              const homeFlag = match.homeTeam.area?.code || 'XX';
+              const awayFlag = match.awayTeam.area?.code || 'XX';
+              const matchDate = match.utcDate || new Date().toISOString();
+              
+              insertMatch.run(
+                groupName,
+                round,
+                homeTeam,
+                awayTeam,
+                homeFlag,
+                awayFlag,
+                matchDate,
                 homeScore,
-                awayScore,
-                sanitizeInput(match.homeTeam.name),
-                sanitizeInput(match.awayTeam.name)
+                awayScore
               );
+              insertedCount++;
+            } else {
               updatedCount++;
             }
           }
-        });
+        }
       });
-      
-      transaction();
+    });
+    
+    transaction();
 
-      calculatePoints();
-      console.log(`Atualização automática concluída! ${updatedCount} jogos atualizados.`);
-    }
+    // Calcular pontos após atualização
+    calculatePoints();
+    
+    console.log(`✅ Atualização automática concluída! ${updatedCount} jogos atualizados, ${insertedCount} novos jogos inseridos.`);
+    
   } catch (error) {
-    console.error('Erro na atualização automática:', error.message);
+    console.error('❌ Erro na atualização automática:', error.message);
+    if (error.code === 'ECONNABORTED') {
+      console.error('⏱️  Timeout ao conectar com API externa');
+    } else if (error.response) {
+      console.error(`🔴 Erro HTTP ${error.response.status}: ${error.response.statusText}`);
+    }
+  }
+}
+
+// Endpoint para atualizar manualmente os resultados da API
+app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
+  try {
+    console.log('🔄 Solicitação manual para buscar resultados da API...');
+    await fetchAndUpdateMatches();
+    res.json({ success: true, message: 'Resultados atualizados da API com sucesso' });
+  } catch (error) {
+    console.error('❌ Erro ao buscar dados da API:', error.message);
+    if (error.code === 'ECONNABORTED') {
+      return res.status(504).json({ error: 'Timeout ao conectar com API externa' });
+    }
+    res.status(500).json({ error: 'Erro ao consumir API externa' });
   }
 });
 
@@ -985,7 +994,39 @@ function initializeMatches() {
     ['H', 2, 'Argentina', 'Itália', 'AR', 'IT', '2026-06-20T12:00:00Z', 'scheduled'],
     ['H', 2, 'Polônia', 'Somália', 'PL', 'SO', '2026-06-20T15:00:00Z', 'scheduled'],
     ['H', 3, 'Somália', 'Argentina', 'SO', 'AR', '2026-06-24T15:00:00Z', 'scheduled'],
-    ['H', 3, 'Polônia', 'Itália', 'PL', 'IT', '2026-06-24T15:00:00Z', 'scheduled']
+    ['H', 3, 'Polônia', 'Itália', 'PL', 'IT', '2026-06-24T15:00:00Z', 'scheduled'],
+    
+    // Grupo I - Atlanta
+    ['I', 1, 'Brasil', 'Camarões', 'BR', 'CM', '2026-06-14T12:00:00Z', 'scheduled'],
+    ['I', 1, 'Hungria', 'Guiana', 'HU', 'GY', '2026-06-14T15:00:00Z', 'scheduled'],
+    ['I', 2, 'Brasil', 'Hungria', 'BR', 'HU', '2026-06-19T12:00:00Z', 'scheduled'],
+    ['I', 2, 'Camarões', 'Guiana', 'CM', 'GY', '2026-06-19T15:00:00Z', 'scheduled'],
+    ['I', 3, 'Guiana', 'Brasil', 'GY', 'BR', '2026-06-23T15:00:00Z', 'scheduled'],
+    ['I', 3, 'Camarões', 'Hungria', 'CM', 'HU', '2026-06-23T15:00:00Z', 'scheduled'],
+    
+    // Grupo J - Dallas
+    ['J', 1, 'Portugal', 'Egito', 'PT', 'EG', '2026-06-13T12:00:00Z', 'scheduled'],
+    ['J', 1, 'Bélgica', 'Bolívia', 'BE', 'BO', '2026-06-13T15:00:00Z', 'scheduled'],
+    ['J', 2, 'Portugal', 'Bélgica', 'PT', 'BE', '2026-06-18T12:00:00Z', 'scheduled'],
+    ['J', 2, 'Egito', 'Bolívia', 'EG', 'BO', '2026-06-18T15:00:00Z', 'scheduled'],
+    ['J', 3, 'Bolívia', 'Portugal', 'BO', 'PT', '2026-06-22T15:00:00Z', 'scheduled'],
+    ['J', 3, 'Egito', 'Bélgica', 'EG', 'BE', '2026-06-22T15:00:00Z', 'scheduled'],
+    
+    // Grupo K - Houston
+    ['K', 1, 'Holanda', 'Nigéria', 'NL', 'NG', '2026-06-12T12:00:00Z', 'scheduled'],
+    ['K', 1, 'Noruega', 'Omã', 'NO', 'OM', '2026-06-12T15:00:00Z', 'scheduled'],
+    ['K', 2, 'Holanda', 'Noruega', 'NL', 'NO', '2026-06-17T12:00:00Z', 'scheduled'],
+    ['K', 2, 'Nigéria', 'Omã', 'NG', 'OM', '2026-06-17T15:00:00Z', 'scheduled'],
+    ['K', 3, 'Omã', 'Holanda', 'OM', 'NL', '2026-06-21T15:00:00Z', 'scheduled'],
+    ['K', 3, 'Nigéria', 'Noruega', 'NG', 'NO', '2026-06-21T15:00:00Z', 'scheduled'],
+    
+    // Grupo L - Kansas City
+    ['L', 1, 'Croácia', 'Marrocos', 'HR', 'MA', '2026-06-11T12:00:00Z', 'scheduled'],
+    ['L', 1, 'Austrália', 'Jamaica', 'AU', 'JM', '2026-06-11T15:00:00Z', 'scheduled'],
+    ['L', 2, 'Croácia', 'Austrália', 'HR', 'AU', '2026-06-16T12:00:00Z', 'scheduled'],
+    ['L', 2, 'Marrocos', 'Jamaica', 'MA', 'JM', '2026-06-16T15:00:00Z', 'scheduled'],
+    ['L', 3, 'Jamaica', 'Croácia', 'JM', 'HR', '2026-06-21T12:00:00Z', 'scheduled'],
+    ['L', 3, 'Marrocos', 'Austrália', 'MA', 'AU', '2026-06-21T12:00:00Z', 'scheduled']
   ];
 
   const insertMatch = db.prepare(`

@@ -1,1 +1,11 @@
-Nothing needs to be added to the .gitignore file since the changes only include source files (backend/server.js, frontend/index.html) without any build artifacts, dependencies, or temporary files that should be ignored.
+```
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Build outputs
+backend/node_modules/
+
+```
