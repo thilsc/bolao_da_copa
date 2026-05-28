@@ -634,9 +634,9 @@ body {
       <span style="font-size:1.5rem">⚽</span>
       <div class="logo">Bolão 2026</div>
       <div class="top-tabs">
-        <button class="top-tab-btn active" onclick="switchTab('palpites',this)">🎯 Palpites</button>
-        <button class="top-tab-btn" onclick="switchTab('ranking',this)">🏆 Ranking</button>
-        <button class="top-tab-btn" onclick="switchTab('admin',this)">⚙️ Admin</button>
+        <button class="top-tab-btn active" onclick="switchTab('palpites',this)" id="top-palpites">🎯 Palpites</button>
+        <button class="top-tab-btn" onclick="switchTab('ranking',this)" id="top-ranking">🏆 Ranking</button>
+        <button class="top-tab-btn" onclick="switchTab('admin',this)" id="top-admin">⚙️ Admin</button>
       </div>
     </div>
     <div class="user-info">
@@ -890,7 +890,20 @@ function logout() {
 async function startApp() {
   document.getElementById('header-user-name').textContent = currentUser.name;
   showScreen('app');
+  
+  // Definir a aba inicial baseada no papel do usuário
+  const initialTab = currentUser?.role === 'admin' ? 'ranking' : 'palpites';
+  
   await Promise.all([loadMatches(), loadRanking()]);
+  
+  // Carregar a aba apropriada
+  if (currentUser?.role === 'admin') {
+    // Admin começa na aba Ranking
+    switchTab('ranking', null);
+  } else {
+    // Usuário normal começa na aba Palpites
+    switchTab('palpites', null);
+  }
 }
 
   const API_BASE_URL = 'https://bolao-da-copa.onrender.com';
@@ -1172,6 +1185,16 @@ async function fetchFromAPI() {
 
 // ── Tab navigation ────────────────────────────────────────────────
 function switchTab(tab, clickedBtn) {
+  // Verificar permissões baseado no papel do usuário
+  if (tab === 'admin' && currentUser?.role !== 'admin') {
+    // Usuário normal tentando acessar admin - voltar para palpites
+    tab = 'palpites';
+  }
+  if (tab === 'palpites' && currentUser?.role === 'admin') {
+    // Admin tentando acessar palpites - voltar para ranking
+    tab = 'ranking';
+  }
+  
   // Panels
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
@@ -1183,7 +1206,9 @@ function switchTab(tab, clickedBtn) {
 
   // Top tabs
   document.querySelectorAll('.top-tab-btn').forEach(b => b.classList.remove('active'));
-  if (clickedBtn?.classList.contains('top-tab-btn')) clickedBtn.classList.add('active');
+  const topBtn = document.getElementById(`top-${tab}`);
+  if (topBtn) topBtn.classList.add('active');
+  else if (clickedBtn?.classList.contains('top-tab-btn')) clickedBtn.classList.add('active');
 
   if (tab === 'ranking') loadRanking();
 }
