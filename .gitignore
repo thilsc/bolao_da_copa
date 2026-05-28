@@ -1,29 +1,4 @@
 ```
-# Database
-bolao.db
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Dependencies
-node_modules/
-
-# Logs
-*.log
-
-# Editor
-.vscode/
-.idea/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-venv/
-.venv/
-.env
+# Patch files
+*.patch
 ```
