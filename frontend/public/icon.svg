@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="90" fill="#1e3c72"/>
+  <circle cx="256" cy="256" r="172" fill="white"/>
+  <!-- center pentagon -->
+  <polygon points="256,148 311,188 290,248 222,248 201,188" fill="#1a1a2e"/>
+  <!-- 5 outer pentagons -->
+  <polygon points="311,188 376,164 400,228 355,266 290,248" fill="#1a1a2e"/>
+  <polygon points="355,266 400,306 382,372 316,376 290,318" fill="#1a1a2e"/>
+  <polygon points="222,318 196,376 130,372 112,306 157,266" fill="#1a1a2e"/>
+  <polygon points="157,266 112,228 136,164 201,188 222,248" fill="#1a1a2e"/>
+  <polygon points="290,318 316,376 256,400 196,376 222,318" fill="#1a1a2e"/>
+</svg>

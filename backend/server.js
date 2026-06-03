@@ -18,13 +18,18 @@ const nodemailer = require('nodemailer');
 dotenv.config();
 
 // Validação de variáveis de ambiente obrigatórias
-const requiredEnvVars = ['FOOTBALL_DATA_API_KEY', 'JWT_SECRET', 'APP_URL'];
+// APP_URL is optional — derived from REPLIT_DEV_DOMAIN if not set
+const requiredEnvVars = ['JWT_SECRET'];
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
 if (missingEnvVars.length > 0) {
   console.error(`❌ ERRO CRÍTICO: Variáveis de ambiente ausentes: ${missingEnvVars.join(', ')}`);
   console.error('Por favor, configure todas as variáveis no arquivo .env');
   process.exit(1);
+}
+
+if (!process.env.FOOTBALL_DATA_API_KEY) {
+  console.warn('⚠️  FOOTBALL_DATA_API_KEY não configurada — sincronização automática de partidas desativada.');
 }
 
 // Validar JWT_SECRET (deve ter pelo menos 32 caracteres)
@@ -35,6 +40,9 @@ if (process.env.JWT_SECRET.length < 32) {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Trust proxy — required on Replit (requests come through a reverse proxy)
+app.set('trust proxy', 1);
 const JWT_SECRET = process.env.JWT_SECRET || 'bolao-2026-dev-secret';
 
 // Middleware de segurança - Helmet (configura cabeçalhos HTTP seguros)
@@ -42,7 +50,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:'],
       connectSrc: ["'self'", 'https://api.football-data.org'],
@@ -124,7 +132,12 @@ app.use(cors({
     // Permitir requisições sem origin (como mobile apps ou curl)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('netlify.app')) {
+    if (
+      allowedOrigins.indexOf(origin) !== -1 ||
+      origin.includes('netlify.app') ||
+      origin.includes('.replit.dev') ||
+      origin.includes('.repl.co')
+    ) {
       callback(null, true);
     } else {
       callback(new Error('Não permitido pelo CORS'));
@@ -550,7 +563,7 @@ app.get('/api/users/pending-activation', authenticateToken, isAdmin, (req, res) 
       FROM users 
       WHERE is_verified = 0 
         AND created_at >= datetime('now', '-48 hours')
-		AND email <> 'admin@bolao.com'
+                AND email <> 'admin@bolao.com'
       ORDER BY created_at DESC
     `).all();
     res.json(pendingUsers);
@@ -1019,13 +1032,13 @@ app.post('/api/matches/fetch-results', authenticateToken, isAdmin, adminLimiter,
 app.post('/api/resetAll', authenticateToken, isAdmin, adminLimiter, async (req, res) => {
   try {
     console.log('⚠️ INICIANDO RESET COMPLETO DO BOLÃO - ESTE PROCESSO EXCLUIRÁ TODOS OS DADOS EXISTENTES');
-	
-	resetUsers();
+        
+        resetUsers();
     resetPredictionsAndMatches();
     initializeMatches();
-	
-	const insertedCount = db.prepare('SELECT COUNT(*) as total FROM matches').get();
-	
+        
+        const insertedCount = db.prepare('SELECT COUNT(*) as total FROM matches').get();
+        
     console.log(`✅ RESET CONCLUÍDO! ${insertedCount} jogos da Copa do Mundo FIFA 2026 importados.`);
     console.log('⚠️ LEMBRETE: Todos os palpites e jogos anteriores foram EXCLUÍDOS permanentemente.');
     
@@ -1035,7 +1048,7 @@ app.post('/api/resetAll', authenticateToken, isAdmin, adminLimiter, async (req, 
       warning: 'Todos os dados anteriores (jogos, usuários e palpites) foram excluídos permanentemente.',
       matchesImported: insertedCount
     });
-	
+        
   } catch (error) {
     console.error('❌ Erro crítico na sincronização da Copa do Mundo 2026:', error.message);
     if (error.response) {
@@ -1337,9 +1350,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handler para rotas não encontradas (404)
-app.use((req, res) => {
-  res.status(404).json({ error: 'Rota não encontrada' });
+// Serve frontend static files from the built dist folder
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+app.use(express.static(frontendDist));
+
+// SPA fallback — serve index.html for any non-API route
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 // Graceful shutdown
