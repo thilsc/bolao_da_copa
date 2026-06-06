@@ -1,5 +1,5 @@
 const CACHE = 'bolao2026-v1';
-const SHELL = ['/', '/manifest.json', '/icon.svg'];
+const SHELL = ['/', '/manifest.json', '/icon.svg', '/styles.css'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
