@@ -13,6 +13,7 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const fs = require('fs');
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -122,23 +123,19 @@ app.use(hpp()); // Prevenir poluição de parâmetros HTTP
 
 // CORS configurado de forma segura
 const allowedOrigins = [
-  'https://bolaopbc.netlify.app',
   'http://localhost:5173',
   'http://localhost:3001',
+  'http://localhost:5000',  
   process.env.APP_URL
 ].filter(Boolean);
 
 app.use(cors({
+
   origin: function(origin, callback) {
     // Permitir requisições sem origin (como mobile apps ou curl)
     if (!origin) return callback(null, true);
     
-    if (
-      allowedOrigins.indexOf(origin) !== -1 ||
-      origin.includes('netlify.app') ||
-      origin.includes('.replit.dev') ||
-      origin.includes('.repl.co')
-    ) {
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Não permitido pelo CORS'));
@@ -151,7 +148,7 @@ app.use(cors({
 }));
 
 // ── Database ──────────────────────────────────────────────────────────────────
-const db = new Database('./bolao.db');
+const db = new Database('./'+process.env.DATABASE_NAME, { verbose: console.log });
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -505,7 +502,7 @@ app.post('/api/login', authLimiter, (req, res) => {
     }
     
     // Verificar se o email foi confirmado (exceto para admin)
-    if (!user.is_verified && user.email !== 'admin@bolao.com') {
+    if (!user.is_verified && user.email && user.role !== 'admin') {
       return res.status(403).json({ 
         error: 'Email não verificado. Por favor, verifique seu email antes de fazer login.',
         resendVerification: true
@@ -655,7 +652,7 @@ app.get('/api/users/:userId/predictions', authenticateToken, (req, res) => {
     }
     
     const predictions = db.prepare(`
-      SELECT p.id, p.predicted_score_a, p.predicted_score_b, p.predicted_result, p.points, p.created_at, p.updated_at,
+      SELECT p.id, p.match_id, p.predicted_score_a, p.predicted_score_b, p.predicted_result, p.points, p.created_at, p.updated_at,
              m.team_a, m.team_b, m.team_a_flag, m.team_b_flag, m.match_date, m.score_a, m.score_b, m.status
       FROM predictions p
       JOIN matches m ON p.match_id = m.id
@@ -703,16 +700,19 @@ app.post('/api/predictions', authenticateToken, (req, res) => {
     // Verificar se o jogo já começou ou está prestes a começar (menos de 1 hora)
     const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(parsedMatchId);
     if (!match) {
-      return res.status(404).json({ error: 'Jogo não encontrado' });
+      return res.status(404).json({ error: 'Partida não encontrada' });
     }
 
+    const matchDate = new Date(match.match_date);
     const now = new Date();
     const oneHourBefore = new Date(matchDate.getTime() - 60 * 60 * 1000);
 
+    if (now >= matchDate) {
+      return res.status(400).json({ error: 'Não é possível palpitar após o início da partida' });
+    }
+
     if (now >= oneHourBefore) {
-      return res.status(400).json({ 
-        error: 'Não é permitido alterar palpites com menos de 1 hora antes do jogo começar' 
-      });
+      return res.status(400).json({ error: 'Não é permitido alterar palpites com menos de 1 hora antes do jogo começar' });
     }
 
     // Verificar se já existe palpite
@@ -859,7 +859,7 @@ app.get('/api/ranking', (req, res) => {
       SELECT u.id, u.name, COALESCE(SUM(p.points), 0) as total_points, COUNT(p.id) as predictions_count
       FROM users u
       LEFT JOIN predictions p ON u.id = p.user_id
-      WHERE u.role != 'admin'
+      WHERE u.email != 'admin@bolao.com'
       GROUP BY u.id, u.name
       ORDER BY total_points DESC, predictions_count ASC, u.name ASC
     `).all();
@@ -1182,6 +1182,14 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('✅ Servidor configurado para aceitar conexões externas');
   createAdminUser();
   initializeMatches();
+
+  if(process.env.NODE_ENV === 'development') 
+  {
+    const jsonUsers = JSON.parse(fs.readFileSync('./users.json', 'utf-8'));
+    for (const user of jsonUsers) {
+      createUser(user.name, user.email, user.password);
+    }  
+  }
 });
 
 // Função para excluir todas as partidas e todos os palpites
@@ -1314,27 +1322,61 @@ function initializeMatches() {
 
 // Função para criar usuário admin se não existir (com senha gerada aleatoriamente em produção)
 function createAdminUser() {
-  const adminEmail = 'admin@bolao.com';
-  
-  // Em produção, usar variável de ambiente para a senha ou gerar uma aleatória
-  const adminPassword = process.env.ADMIN_PASSWORD || 'AdminCopa2026!Secure#Random';
-  
+  const adminEmail = process.env.ADMIN_USERNAME;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const hashedPassword = bcrypt.hashSync(adminPassword, 12);
+
   const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
   
-  if (!existingAdmin) {
-    const hashedPassword = bcrypt.hashSync(adminPassword, 12);
-    const result = db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)').run(
+  if (!existingAdmin) 
+  {
+    const result = db.prepare('INSERT INTO users (name, email, password, is_verified, role) VALUES (?, ?, ?, ?, ?)').run(
       'Administrador',
       adminEmail,
       hashedPassword,
+      1,
       'admin'
     );
+
     console.log('✅ Usuário admin criado com sucesso!');
     console.log(`   Email: ${adminEmail}`);
     console.log(`   Senha: ${adminPassword}`);
-    console.log('   ⚠️  GUARDE ESTA SENHA COM SEGURANÇA! Altere após o primeiro login.');
   } else {
-    console.log('Usuário admin já existe.');
+
+    const result = db.prepare('UPDATE users SET role = ?, password = ? WHERE email = ?').run(
+      'admin',
+      hashedPassword,
+      adminEmail
+    );
+
+    console.log('✅ Usuário admin alterado com sucesso!');
+    console.log(`   Email: ${adminEmail}`);
+    console.log(`   Senha: ${adminPassword}`);
+  }
+  console.log('   ⚠️  GUARDE ESTA SENHA COM SEGURANÇA! Altere após o primeiro login.');
+}
+
+function createUser(name, email, password) {
+  const hashedPassword = bcrypt.hashSync(password, 12);
+
+  const existinguser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  
+  if (!existinguser) 
+  {
+    const result = db.prepare('INSERT INTO users (name, email, password, is_verified, role) VALUES (?, ?, ?, ?, ?)').run(
+      name,
+      email,
+      hashedPassword,
+      1,
+      'user'
+    );
+
+    console.log('✅ Usuário criado com sucesso!');
+    console.log(`   Nome: ${name}`);
+    console.log(`   Email: ${email}`);
+    console.log(`   Senha: ${password}`);
+  } else {
+    console.log(`Usuário ${name} já existe.`);
   }
 }
 

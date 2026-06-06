@@ -1,1 +1,7 @@
-Nothing needs to be added to the .gitignore file since only a source code file (backend/server.js) was modified and there are no build artifacts, dependencies, or temporary files in the changes.
+node_modules/
+dist/
+build/
+.env
+*.log
+*.sqlite
+*.db

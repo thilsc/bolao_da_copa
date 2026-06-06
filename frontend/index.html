@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Bolão Copa 2026</title>
+<title>Bolão da Copa 2026</title>
 
 <!-- PWA -->
 <link rel="manifest" href="/manifest.json">
@@ -14,523 +14,8 @@
 <meta name="apple-mobile-web-app-title" content="Bolão 2026">
 <link rel="apple-touch-icon" href="/icon.svg">
 <link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="stylesheet" href="./styles.css">
 
-<style>
-/* ── Reset & variables ──────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --navy: #1e3c72;
-  --blue: #2a5298;
-  --accent: #f5a623;
-  --danger: #e74c3c;
-  --success: #27ae60;
-  --bg: #f0f4ff;
-  --card: #ffffff;
-  --text: #1a1a2e;
-  --muted: #6b7280;
-  --border: #e2e8f0;
-  --radius: 14px;
-  --shadow: 0 2px 12px rgba(0,0,0,.10);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,.14);
-}
-
-html, body { height: 100%; }
-
-body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: linear-gradient(145deg, var(--navy) 0%, var(--blue) 100%);
-  min-height: 100vh;
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* ── Screens ────────────────────────────────────────────────────── */
-.screen { display: none; min-height: 100vh; }
-.screen.active { display: flex; flex-direction: column; }
-
-/* ── Auth screen ────────────────────────────────────────────────── */
-#auth-screen {
-  align-items: center;
-  justify-content: center;
-  padding: 20px 16px 40px;
-}
-
-.auth-logo {
-  text-align: center;
-  color: white;
-  margin-bottom: 28px;
-}
-.auth-logo .ball { font-size: 56px; line-height: 1; }
-.auth-logo h1 { font-size: 1.7rem; font-weight: 800; margin-top: 8px; }
-.auth-logo p { font-size: .9rem; opacity: .8; margin-top: 4px; }
-
-.auth-card {
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  width: 100%;
-  max-width: 400px;
-  overflow: hidden;
-}
-
-.auth-tabs {
-  display: flex;
-  border-bottom: 2px solid var(--border);
-}
-.auth-tab {
-  flex: 1;
-  padding: 14px;
-  font-size: .95rem;
-  font-weight: 600;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--muted);
-  transition: all .2s;
-}
-.auth-tab.active {
-  color: var(--navy);
-  border-bottom: 3px solid var(--navy);
-  margin-bottom: -2px;
-}
-
-.auth-form { padding: 24px; }
-.auth-form form { display: flex; flex-direction: column; gap: 14px; }
-
-.field label {
-  display: block;
-  font-size: .82rem;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 5px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-.field input {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
-  font-size: 1rem;
-  color: var(--text);
-  transition: border-color .2s;
-  background: #fafafa;
-}
-.field input:focus {
-  outline: none;
-  border-color: var(--navy);
-  background: white;
-}
-
-.btn {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 13px 20px;
-  border: none;
-  border-radius: 10px;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .15s;
-  min-height: 48px;
-  text-decoration: none;
-}
-.btn-primary { background: var(--navy); color: white; }
-.btn-primary:active { background: #162d5a; transform: scale(.98); }
-.btn-secondary { background: var(--bg); color: var(--navy); border: 1.5px solid var(--border); }
-.btn-danger { background: var(--danger); color: white; }
-.btn-sm { padding: 9px 14px; font-size: .88rem; min-height: 36px; }
-.btn:disabled { opacity: .55; cursor: not-allowed; }
-
-.alert {
-  padding: 11px 14px;
-  border-radius: 9px;
-  font-size: .9rem;
-  font-weight: 500;
-}
-.alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-.alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-.alert-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
-
-/* ── Verify screen ──────────────────────────────────────────────── */
-#verify-screen {
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
-}
-.verify-card {
-  background: white;
-  border-radius: var(--radius);
-  padding: 36px 24px;
-  max-width: 380px;
-  width: 100%;
-  text-align: center;
-  box-shadow: var(--shadow-lg);
-}
-.verify-card .icon { font-size: 56px; margin-bottom: 16px; }
-.verify-card h2 { font-size: 1.4rem; color: var(--navy); margin-bottom: 10px; }
-.verify-card p { color: var(--muted); font-size: .93rem; line-height: 1.6; margin-bottom: 20px; }
-.dev-link {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: .78rem;
-  word-break: break-all;
-  color: var(--navy);
-  margin-bottom: 16px;
-  text-align: left;
-}
-
-/* ── App screen ─────────────────────────────────────────────────── */
-#app-screen { background: var(--bg); }
-
-.app-header {
-  background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
-  color: white;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 8px rgba(0,0,0,.2);
-}
-.app-header .logo { font-size: 1.1rem; font-weight: 800; }
-.app-header .logo span { font-size: 1.4rem; }
-.user-info { display: flex; align-items: center; gap: 10px; font-size: .88rem; }
-.user-info .name { font-weight: 600; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* Bottom nav (mobile) */
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0; right: 0;
-  background: white;
-  border-top: 1px solid var(--border);
-  display: flex;
-  z-index: 100;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  box-shadow: 0 -2px 10px rgba(0,0,0,.08);
-}
-.nav-btn {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 10px 8px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: .72rem;
-  font-weight: 600;
-  transition: color .15s;
-}
-.nav-btn .nav-icon { font-size: 1.5rem; line-height: 1; }
-.nav-btn.active { color: var(--navy); }
-
-/* Tab content */
-.app-content {
-  flex: 1;
-  padding: 16px 16px 80px;
-  overflow-y: auto;
-}
-
-/* Tab panels */
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
-
-/* ── Group filter ───────────────────────────────────────────────── */
-.group-filter {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-.group-chip {
-  padding: 6px 12px;
-  border-radius: 20px;
-  border: 1.5px solid var(--border);
-  background: white;
-  font-size: .8rem;
-  font-weight: 700;
-  cursor: pointer;
-  color: var(--muted);
-  transition: all .15s;
-}
-.group-chip.active { background: var(--navy); color: white; border-color: var(--navy); }
-
-/* ── Match cards ────────────────────────────────────────────────── */
-.matches-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-.match-card {
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  transition: box-shadow .2s;
-}
-
-.match-card-header {
-  background: linear-gradient(135deg, var(--navy), var(--blue));
-  color: white;
-  padding: 8px 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: .78rem;
-  font-weight: 600;
-}
-.match-card-header .round-badge {
-  background: rgba(255,255,255,.2);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: .72rem;
-}
-
-.match-card-body { padding: 16px 14px 14px; }
-
-.teams-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.team-block {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  text-align: center;
-}
-.team-flag { font-size: 2rem; line-height: 1; }
-.flag-emoji::before { content: attr(data-flag); }
-.team-name { font-size: .8rem; font-weight: 700; color: var(--text); line-height: 1.2; }
-
-.score-vs {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.vs-label { font-size: .7rem; color: var(--muted); font-weight: 600; }
-.score-inputs { display: flex; align-items: center; gap: 6px; }
-.score-input {
-  width: 48px;
-  height: 48px;
-  text-align: center;
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--navy);
-  background: #f8fafc;
-}
-.score-input:focus { outline: none; border-color: var(--navy); background: white; }
-.score-input:disabled { background: var(--bg); color: var(--muted); cursor: default; }
-.score-divider { font-size: 1.1rem; font-weight: 800; color: var(--muted); }
-
-.result-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.result-btn {
-  flex: 1;
-  padding: 7px 4px;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  font-size: .75rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: white;
-  color: var(--muted);
-  transition: all .15s;
-  text-align: center;
-}
-.result-btn.selected { background: var(--navy); color: white; border-color: var(--navy); }
-.result-btn:disabled { cursor: default; opacity: .7; }
-
-.match-actual-score {
-  text-align: center;
-  background: var(--bg);
-  border-radius: 8px;
-  padding: 8px;
-  font-size: .85rem;
-  color: var(--muted);
-  margin-bottom: 10px;
-}
-.match-actual-score strong { color: var(--navy); font-size: 1.1rem; }
-
-.points-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 10px;
-  font-size: .78rem;
-  font-weight: 700;
-}
-.pts-5 { background: #fef9c3; color: #854d0e; }
-.pts-2 { background: #dcfce7; color: #166534; }
-.pts-0 { background: #f1f5f9; color: var(--muted); }
-
-.closed-badge {
-  text-align: center;
-  font-size: .75rem;
-  color: var(--danger);
-  font-weight: 600;
-  padding: 4px;
-}
-
-/* ── Ranking ────────────────────────────────────────────────────── */
-.ranking-list { display: flex; flex-direction: column; gap: 10px; }
-.ranking-item {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  box-shadow: var(--shadow);
-}
-.rank-pos {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: .95rem;
-  flex-shrink: 0;
-}
-.rank-pos.gold { background: #fef08a; color: #854d0e; }
-.rank-pos.silver { background: #e2e8f0; color: #475569; }
-.rank-pos.bronze { background: #fed7aa; color: #9a3412; }
-.rank-pos.other { background: var(--bg); color: var(--muted); font-size: .85rem; }
-.rank-info { flex: 1; }
-.rank-name { font-weight: 700; font-size: .95rem; }
-.rank-email { font-size: .78rem; color: var(--muted); margin-top: 1px; }
-.rank-pts {
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: var(--navy);
-  text-align: right;
-}
-.rank-pts span { display: block; font-size: .7rem; color: var(--muted); font-weight: 500; text-align: right; }
-.rank-me { border: 2px solid var(--navy); }
-
-/* ── Admin ──────────────────────────────────────────────────────── */
-.admin-section { background: var(--card); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
-.admin-section h3 { font-size: 1rem; color: var(--navy); margin-bottom: 14px; }
-.admin-match-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto 1fr;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: .85rem;
-}
-.admin-match-row:last-child { border-bottom: none; }
-.admin-team { font-weight: 600; }
-.admin-team.right { text-align: right; }
-.admin-score-input {
-  width: 44px; height: 36px;
-  text-align: center;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  font-size: 1rem; font-weight: 700;
-  color: var(--navy);
-}
-.admin-score-input:focus { outline: none; border-color: var(--navy); }
-
-/* ── Loading ────────────────────────────────────────────────────── */
-.spinner {
-  width: 22px; height: 22px;
-  border: 2.5px solid rgba(255,255,255,.4);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin .6s linear infinite;
-  display: inline-block;
-}
-.spinner.dark {
-  border-color: rgba(30,60,114,.2);
-  border-top-color: var(--navy);
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.loading-overlay {
-  position: fixed; inset: 0;
-  background: rgba(30,60,114,.95);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 999;
-  flex-direction: column;
-  gap: 16px;
-  color: white;
-  font-size: .95rem;
-}
-.loading-ball { font-size: 3rem; animation: bounce .8s ease-in-out infinite alternate; }
-@keyframes bounce { to { transform: translateY(-12px); } }
-
-/* ── Empty state ────────────────────────────────────────────────── */
-.empty-state {
-  text-align: center;
-  padding: 48px 24px;
-  color: var(--muted);
-}
-.empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
-.empty-state p { font-size: .95rem; }
-
-/* ── Section title ──────────────────────────────────────────────── */
-.section-title {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--navy);
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* ── Tablet / Desktop ───────────────────────────────────────────── */
-@media (min-width: 640px) {
-  .matches-grid { grid-template-columns: repeat(2, 1fr); }
-  .auth-card { max-width: 440px; }
-}
-@media (min-width: 900px) {
-  .matches-grid { grid-template-columns: repeat(3, 1fr); }
-  .app-content { max-width: 960px; margin: 0 auto; padding: 24px 24px 32px; }
-  .bottom-nav { display: none; }
-  .app-header { padding: 14px 28px; }
-  /* Desktop: top nav tabs */
-  .top-tabs { display: flex !important; }
-}
-.top-tabs {
-  display: none;
-  gap: 4px;
-  margin-left: 20px;
-}
-.top-tab-btn {
-  padding: 7px 16px;
-  border: none;
-  border-radius: 8px;
-  background: rgba(255,255,255,.15);
-  color: white;
-  font-size: .88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .15s;
-}
-.top-tab-btn.active { background: rgba(255,255,255,.9); color: var(--navy); }
-</style>
 </head>
 <body>
 
@@ -544,14 +29,14 @@ body {
 <div id="auth-screen" class="screen">
   <div class="auth-logo">
     <div class="ball">⚽</div>
-    <h1>Bolão Copa 2026</h1>
-    <p>Faça seus palpites e concorra com todos!</p>
+    <h1>Bolão da Copa 2026</h1>
+    <p>Faça seus palpites!</p>
   </div>
 
   <div class="auth-card">
     <div class="auth-tabs">
       <button class="auth-tab active" onclick="showAuthTab('login')">Entrar</button>
-      <button class="auth-tab" onclick="showAuthTab('register')">Cadastrar</button>
+      <button class="auth-tab" onclick="/*showAuthTab('register')*/">Cadastrar</button>
     </div>
 
     <!-- Login -->
@@ -634,8 +119,9 @@ body {
       <span style="font-size:1.5rem">⚽</span>
       <div class="logo">Bolão 2026</div>
       <div class="top-tabs">
+        <button class="top-tab-btn" onclick="switchTab('palpites',this)" id="top-palpites">🎯 Meus Palpites</button>
         <button class="top-tab-btn" onclick="switchTab('ranking',this)" id="top-ranking">🏆 Ranking</button>
-        <button class="top-tab-btn" onclick="switchTab('admin',this)" id="top-admin">⚙️ Admin</button>
+        <button class="top-tab-btn" onclick="switchTab('admin',this)" id="top-admin">⚙️ Admin</button>        
       </div>
     </div>
     <div class="user-info">
@@ -720,11 +206,11 @@ body {
 
   <!-- Bottom nav (mobile) -->
   <nav class="bottom-nav">
+    <button class="nav-btn" id="nav-palpites" onclick="switchTab('palpites',this)">
+      <span class="nav-icon">🎯</span>Meus Palpites
+    </button>
     <button class="nav-btn" id="nav-ranking" onclick="switchTab('ranking',this)">
       <span class="nav-icon">🏆</span>Ranking
-    </button>
-    <button class="nav-btn" id="nav-palpites" onclick="switchTab('palpites',this)">
-      <span class="nav-icon">🎯</span>Palpites
     </button>
     <button class="nav-btn" id="nav-admin" onclick="switchTab('admin',this)">
       <span class="nav-icon">⚙️</span>Admin
@@ -929,20 +415,23 @@ function logout() {
 async function startApp() {
   document.getElementById('header-user-name').textContent = currentUser.name;
   showScreen('app');
-  
-  // Definir a aba inicial baseada no papel do usuário
-  const initialTab = currentUser?.role === 'admin' ? 'ranking' : 'palpites';
-  
+ 
   await Promise.all([loadMatches(), loadRanking()]);
   
-  // Carregar a aba apropriada
-  if (currentUser?.role === 'admin') {
-    // Admin começa na aba Ranking
-    switchTab('ranking', null);
-  } else {
-    // Usuário normal começa na aba Palpites
-    switchTab('palpites', null);
+  if (currentUser?.email === 'admin@bolao.com')
+  {
+    document.getElementById('top-palpites').style.display = 'none';
+    document.getElementById('nav-palpites').style.display = 'none';
   }
+
+  // Definir a aba inicial baseada no papel do usuário
+  const isAdmin = currentUser?.role === 'admin';
+  const initialTab = isAdmin ? 'admin' : 'palpites';
+
+  document.getElementById('top-admin').style.display = isAdmin ? '' : 'none';
+  document.getElementById('nav-admin').style.display = isAdmin ? '' : 'none';
+
+  switchTab(initialTab, null);
 }
 
   const API_BASE_URL = '';
@@ -1021,20 +510,25 @@ function renderMatches() {
 }
 
 function renderMatchCard(match) {
-  const pred = userPredictions.find(p => p.match_id === match.id);
+  const pred = userPredictions.find(p => Number(p.match_id) === Number(match.id));
   const now = new Date();
   const matchDate = new Date(match.match_date);
   const closed = now >= new Date(matchDate.getTime() - 60 * 60 * 1000);
   const finished = match.status === 'finished';
 
-  const pA = pred?.predicted_score_a ?? '';
-  const pB = pred?.predicted_score_b ?? '';
+  const pA = pred?.predicted_score_a ?? 0;
+  const pB = pred?.predicted_score_b ?? 0;
   const pR = pred?.predicted_result ?? '';
   const pts = pred?.points;
 
+  const valueA = (pA === null || pA === undefined || pA === '') ? 0 : pA;
+  const valueB = (pB === null || pB === undefined || pB === '') ? 0 : pB;
+
   const dateStr = matchDate.toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit',
-    hour: '2-digit', minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
     timeZone: 'America/Sao_Paulo'
   });
 
@@ -1068,16 +562,16 @@ function renderMatchCard(match) {
         </div>
         <div class="score-vs">
           <div class="vs-label">PALPITE</div>
-          <div class="score-inputs">
+          <div class="score-inputs ${closed || finished ? 'locked' : ''}">
             <input type="number" class="score-input" min="0" max="99"
-                   value="${pA}" ${disabledStr}
-                   oninput="syncResult(${match.id})"
-                   id="sa-${match.id}" placeholder="-">
+                  value="${pA === null || pA === undefined || pA === '' ? 0 : pA}" ${disabledStr}
+                  oninput="syncResult(${match.id})"
+                  id="sa-${match.id}" placeholder="0">
             <span class="score-divider">×</span>
             <input type="number" class="score-input" min="0" max="99"
-                   value="${pB}" ${disabledStr}
-                   oninput="syncResult(${match.id})"
-                   id="sb-${match.id}" placeholder="-">
+                  value="${pB === null || pB === undefined || pB === '' ? 0 : pB}" ${disabledStr}
+                  oninput="syncResult(${match.id})"
+                  id="sb-${match.id}" placeholder="0">
           </div>
         </div>
         <div class="team-block">
@@ -1179,16 +673,24 @@ async function loadRanking() {
 
 // ── Admin ─────────────────────────────────────────────────────────
 function buildAdminList() {
-  document.getElementById('admin-matches-list').innerHTML = allMatches.map(m => `
-    <div class="admin-match-row">
-      <span class="admin-team right">${flagToEmoji(m.team_a_flag)} ${m.team_a}</span>
-      <input type="number" class="admin-score-input" min="0" id="adm-a-${m.id}"
-             value="${m.score_a ?? ''}" placeholder="-">
-      <span style="font-weight:700;color:var(--muted)">×</span>
-      <input type="number" class="admin-score-input" min="0" id="adm-b-${m.id}"
-             value="${m.score_b ?? ''}" placeholder="-">
-      <span class="admin-team">${m.team_b} ${flagToEmoji(m.team_b_flag)}</span>
-    </div>`).join('');
+  document.getElementById('admin-matches-list').innerHTML = allMatches.map(m => {
+    const matchDate = new Date(m.match_date);
+    const now = new Date();
+    const locked = now >= new Date(matchDate.getTime() - 60 * 60 * 1000);
+    const disabledStr = locked ? 'disabled' : '';
+
+    return `
+      <div class="admin-match-row ${locked ? 'locked' : ''}">
+        <span class="admin-team right">${flagToEmoji(m.team_a_flag)} ${m.team_a}</span>
+        <input type="number" class="admin-score-input" min="0" id="adm-a-${m.id}"
+               value="${m.score_a ?? ''}" ${disabledStr} placeholder="-">
+        <span style="font-weight:700;color:var(--muted)">×</span>
+        <input type="number" class="admin-score-input" min="0" id="adm-b-${m.id}"
+               value="${m.score_b ?? ''}" ${disabledStr} placeholder="-">
+        <span class="admin-team">${m.team_b} ${flagToEmoji(m.team_b_flag)}</span>
+      </div>
+    `;
+  }).join('');
 }
 
 async function saveScores() {
@@ -1322,14 +824,14 @@ async function activateAllPending() {
 // ── Tab navigation ────────────────────────────────────────────────
 function switchTab(tab, clickedBtn) {
   // Verificar permissões baseado no papel do usuário
-  if (tab === 'admin' && currentUser?.role !== 'admin') {
+  //if (tab === 'admin' && currentUser?.role !== 'admin') {
     // Usuário normal tentando acessar admin - voltar para palpites
-    tab = 'palpites';
-  }
-  if (tab === 'palpites' && currentUser?.role === 'admin') {
+  //  tab = 'palpites';
+  //}
+  //if (tab === 'palpites' && currentUser?.role === 'admin') {
     // Admin tentando acessar palpites - voltar para ranking
-    tab = 'ranking';
-  }
+  //  tab = 'ranking';
+  //}
   
   // Panels
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
