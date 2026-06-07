@@ -16,6 +16,9 @@ export const setUserPredictions = (predictions) => { state.userPredictions = pre
 export const getActiveGroup = () => state.activeGroup;
 export const setActiveGroup = (group) => { state.activeGroup = group; };
 
+// Exportação direta de currentUser para compatibilidade com código legado
+export const currentUser = state;
+
 const API_BASE_URL = '';
 
 // ── API Helper ────────────────────────────────────────────────────
