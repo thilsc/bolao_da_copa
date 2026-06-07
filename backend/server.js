@@ -44,7 +44,6 @@ const PORT = process.env.PORT || 5000;
 
 // Trust proxy — required on Replit (requests come through a reverse proxy)
 app.set('trust proxy', 1);
-const JWT_SECRET = process.env.JWT_SECRET || 'bolao-2026-dev-secret';
 
 // Middleware de segurança - Helmet (configura cabeçalhos HTTP seguros)
 app.use(helmet({
@@ -250,7 +249,7 @@ function authenticate(req, res, next) {
     return res.status(401).json({ error: 'Não autenticado' });
   }
   try {
-    const payload = jwt.verify(header.split(' ')[1], JWT_SECRET);
+    const payload = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
     req.userId = payload.userId;
     next();
   } catch (_) {
@@ -342,7 +341,7 @@ app.post('/api/users', registerLimiter, async (req, res) => {
     const result = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(sanitizedName, sanitizedEmail, hashedPassword);
     
     // Gerar token de verificação
-    const token = jwt.sign({ email: sanitizedEmail }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ email: sanitizedEmail }, process.env.JWT_SECRET, { expiresIn: '24h' });
     
     // Salvar token de verificação no banco
     db.prepare("UPDATE users SET verification_token = ?, token_expires = datetime('now', '+24 hours') WHERE email = ?").run(token, sanitizedEmail);
@@ -368,7 +367,7 @@ app.get('/api/users/verify/:token', async (req, res) => {
     // Verificar token
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       return res.status(400).json({ error: 'Token inválido ou expirado' });
     }
@@ -430,7 +429,7 @@ app.post('/api/users/resend-verification', async (req, res) => {
     }
     
     // Gerar novo token
-    const token = jwt.sign({ email: sanitizedEmail }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ email: sanitizedEmail }, process.env.JWT_SECRET, { expiresIn: '24h' });
     
     // Salvar token de verificação no banco
     db.prepare("UPDATE users SET verification_token = ?, token_expires = datetime('now', '+24 hours') WHERE email = ?").run(token, sanitizedEmail);
@@ -457,7 +456,7 @@ app.post('/api/users/novalidate', registerLimiter, async (req, res) => {
     const result = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(sanitizedName, sanitizedEmail, hashedPassword);
     
     // Gerar token de verificação
-    const token = jwt.sign({ email: sanitizedEmail }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ email: sanitizedEmail }, process.env.JWT_SECRET, { expiresIn: '24h' });
     
     // Salvar token de verificação no banco
     db.prepare("UPDATE users SET verification_token = ?, token_expires = datetime('now', '+24 hours') WHERE email = ?").run(token, sanitizedEmail);
