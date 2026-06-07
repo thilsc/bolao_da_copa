@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bolão da Copa 2026 - Login</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1e3c72">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bolão 2026">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="stylesheet" href="/styles.css">
+
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading" class="loading-overlay">
+  <div class="loading-ball">⚽</div>
+  <span>Carregando...</span>
+</div>
+
+<!-- ── AUTH SCREEN ─────────────────────────────────────────────── -->
+<div id="auth-screen" class="screen active">
+  <div class="auth-logo">
+    <div class="ball">⚽</div>
+    <h1>Bolão da Copa 2026</h1>
+    <p>Faça seus palpites!</p>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="showAuthTab('login')">Entrar</button>
+      <button class="auth-tab" onclick="/*showAuthTab('register')*/">Cadastrar</button>
+    </div>
+
+    <!-- Login -->
+    <div class="auth-form" id="login-form">
+      <form onsubmit="handleLogin(event)">
+        <div class="field">
+          <label>E-mail</label>
+          <input type="email" id="login-email" placeholder="seu@email.com" required autocomplete="email">
+        </div>
+        <div class="field">
+          <label>Senha</label>
+          <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <div id="login-msg"></div>
+        <button type="submit" class="btn btn-primary" id="login-btn">
+          Entrar
+        </button>
+      </form>
+      <p style="text-align:center;margin-top:14px;font-size:.85rem;color:var(--muted)">
+        Não tem conta? <a href="#" onclick="showAuthTab('register')" style="color:var(--navy);font-weight:600">Cadastre-se</a>
+      </p>
+    </div>
+
+    <!-- Register -->
+    <div class="auth-form" id="register-form" style="display:none">
+      <form onsubmit="handleRegister(event)">
+        <div class="field">
+          <label>Nome</label>
+          <input type="text" id="reg-name" placeholder="Seu nome" required autocomplete="name">
+        </div>
+        <div class="field">
+          <label>E-mail</label>
+          <input type="email" id="reg-email" placeholder="seu@email.com" required autocomplete="email">
+        </div>
+        <div class="field">
+          <label>Senha</label>
+          <input type="password" id="reg-password" placeholder="Mínimo 6 caracteres" required autocomplete="new-password" minlength="6">
+        </div>
+        <div class="field">
+          <label>Confirmar Senha</label>
+          <input type="password" id="reg-confirm" placeholder="Repita a senha" required autocomplete="new-password">
+        </div>
+        <div id="register-msg"></div>
+        <button type="submit" class="btn btn-primary" id="register-btn">
+          Criar conta
+        </button>
+      </form>
+      <p style="text-align:center;margin-top:14px;font-size:.85rem;color:var(--muted)">
+        Já tem conta? <a href="#" onclick="showAuthTab('login')" style="color:var(--navy);font-weight:600">Entrar</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { handleLogin, handleRegister, showAuthTab } from './src/auth.js';
+
+// Expor funções globalmente para os handlers inline do HTML
+window.handleLogin = handleLogin;
+window.handleRegister = handleRegister;
+window.showAuthTab = showAuthTab;
+
+// Inicialização básica
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('loading').style.display = 'none';
+});
+</script>
+</body>
+</html>
