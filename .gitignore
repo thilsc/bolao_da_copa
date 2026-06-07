@@ -1,23 +1,74 @@
+```
+# Dependencies
 node_modules/
+
+# Build artifacts
+frontend/dist/
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE specific
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Distribution / packaging
 dist/
 build/
-.env
-*.log
-*.sqlite
-*.db
+*.egg-info/
 
-frontend/node_modules/
-frontend/dist/
-frontend/build/
-frontend/.env
-frontend/*.log
-frontend/*.sqlite
-frontend/*.db
+# MyPy cache
+.mypy_cache/
 
-backend/node_modules/
-backend/dist/
-backend/build/
-backend/.env
-backend/*.log
-backend/*.sqlite
-backend/*.db
+# PyTest cache
+.pytest_cache/
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```

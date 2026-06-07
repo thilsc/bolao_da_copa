@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bolão da Copa 2026 - Verificação</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1e3c72">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bolão 2026">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="stylesheet" href="/styles.css">
+
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading" class="loading-overlay">
+  <div class="loading-ball">⚽</div>
+  <span>Carregando...</span>
+</div>
+
+<!-- ── VERIFY SCREEN ───────────────────────────────────────────── -->
+<div id="verify-screen" class="screen active">
+  <div class="verify-card">
+    <div class="icon">📬</div>
+    <h2>Verifique seu e-mail</h2>
+    <p>Enviamos um link de confirmação para <strong id="verify-email-display"></strong>.<br>
+       Clique no link para ativar sua conta.</p>
+    <div id="dev-link-container" style="display:none">
+      <div class="dev-link" id="dev-link-text"></div>
+    </div>
+    <div id="resend-msg" style="margin-bottom:12px"></div>
+    <button class="btn btn-secondary" onclick="resendVerification()" id="resend-btn">
+      🔁 Reenviar e-mail
+    </button>
+    <br><br>
+    <button class="btn btn-secondary btn-sm" onclick="window.location.href='/login.html'">
+      ← Voltar ao login
+    </button>
+  </div>
+</div>
+
+<script type="module">
+import { resendVerification, showScreen } from './src/auth.js';
+
+// Expor funções globalmente para os handlers inline do HTML
+window.resendVerification = resendVerification;
+
+// Inicialização básica
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('loading').style.display = 'none';
+  
+  // Se houver parâmetro verify na URL, tentar verificar
+  const params = new URLSearchParams(location.search);
+  const vToken = params.get('verify');
+  if (vToken) {
+    // Redirecionar para a página principal com o token
+    window.location.href = '/?verify=' + encodeURIComponent(vToken);
+  }
+});
+</script>
+</body>
+</html>
