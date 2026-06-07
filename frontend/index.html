@@ -16,6 +16,12 @@
 <link rel="icon" type="image/svg+xml" href="/icon.svg">
 <link rel="stylesheet" href="/styles.css">
 
+<!-- Meta tag para forçar HTTPS em produção -->
+<!--meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests"-->
+
+<!-- Meta tag para forçar HTTP em produção -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' http: 'unsafe-inline' 'unsafe-eval';">
+  
 </head>
 <body>
 
