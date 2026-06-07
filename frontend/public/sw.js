@@ -1,3 +1,5 @@
+import './styles.css';
+
 const CACHE = 'bolao2026-v1';
 const SHELL = ['/', '/manifest.json', '/icon.svg', '/styles.css'];
 
