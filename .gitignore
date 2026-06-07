@@ -1,1 +1,34 @@
-(frontend/index.html is a source file, and there are no build artifacts, dependencies, or temp files in the changes, so no .gitignore rules are needed)
+```
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+htmlcov/
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+*.log
+
+# Coverage
+.coverage
+```

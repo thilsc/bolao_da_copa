@@ -17,5 +17,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    rollupOptions: {
+      input: {
+        main: './main.html',
+        login: './login.html',
+        verify: './verify.html',
+      },
+    },
   },
 });

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bolão da Copa 2026</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1e3c72">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bolão 2026">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="stylesheet" href="/styles.css">
+
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading" class="loading-overlay">
+  <div class="loading-ball">⚽</div>
+  <span>Carregando...</span>
+</div>
+
+<!-- ── APP SCREEN ──────────────────────────────────────────────── -->
+<div id="app-screen" class="screen">
+  <header class="app-header">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:1.5rem">⚽</span>
+      <div class="logo">Bolão 2026</div>
+      <div class="top-tabs">
+        <button class="top-tab-btn" onclick="switchTab('palpites',this)" id="top-palpites">🎯 Meus Palpites</button>
+        <button class="top-tab-btn" onclick="switchTab('ranking',this)" id="top-ranking">🏆 Ranking</button>
+        <button class="top-tab-btn" onclick="switchTab('admin',this)" id="top-admin">⚙️ Admin</button>        
+      </div>
+    </div>
+    <div class="user-info">
+      <span class="name" id="header-user-name"></span>
+      <button class="btn btn-sm" onclick="logout()"
+        style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);padding:6px 12px">
+        Sair
+      </button>
+    </div>
+  </header>
+
+  <div class="app-content">
+    <!-- Palpites tab -->
+    <div id="tab-palpites" class="tab-panel">
+      <div class="section-title">🎯 Meus Palpites</div>
+      <div class="group-filter" id="group-filter"></div>
+      <div class="matches-grid" id="matches-container">
+        <div class="empty-state"><div class="icon">⚽</div><p>Carregando jogos...</p></div>
+      </div>
+    </div>
+
+    <!-- Ranking tab -->
+    <div id="tab-ranking" class="tab-panel active">
+      <div class="section-title">🏆 Classificação Geral</div>
+      <div class="ranking-list" id="ranking-container">
+        <div class="empty-state"><div class="icon">⏳</div><p>Carregando...</p></div>
+      </div>
+    </div>
+
+    <!-- Admin tab -->
+    <div id="tab-admin" class="tab-panel">
+      <div class="section-title">⚙️ Administração</div>
+      
+      <!-- Painel de Ativação de Usuários -->
+      <div class="admin-section">
+        <h3>👥 Ativar Cadastros Pendentes (48h)</h3>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">
+          Gerencie usuários que aguardam ativação nas últimas 48 horas.
+        </p>
+        <div id="pending-users-list" style="margin-bottom:12px;max-height:300px;overflow-y:auto;">
+          <div class="empty-state"><div class="icon">⏳</div><p>Carregando usuários pendentes...</p></div>
+        </div>
+        <button class="btn btn-primary" onclick="activateAllPending()" style="width:100%">
+          ✅ Ativar Todos os Pendentes (48h)
+        </button>
+      </div>
+      
+      <div class="admin-section">
+        <h3>📝 Atualizar Placares Manualmente</h3>
+        <div id="admin-matches-list">
+          <div class="empty-state"><div class="icon">⏳</div><p>Carregando jogos...</p></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveScores()" style="margin-top:14px;width:100%">
+          💾 Salvar Placares
+        </button>
+      </div>
+      <div class="admin-section">
+        <h3>🌐 Buscar Resultados Automáticos</h3>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">
+          Atualiza apenas os placares dos jogos existentes. Não exclui dados.
+        </p>
+        <button class="btn btn-secondary" onclick="fetchFromAPI()" style="width:100%">
+          🔄 Atualizar Placares via API
+        </button>
+      </div>
+      
+      <div class="admin-section" style="border: 2px solid var(--danger);">
+        <h3 style="color: var(--danger);">⚠️ Sincronização Completa - Copa do Mundo FIFA 2026</h3>
+        <p style="font-size:.85rem;color:var(--danger);margin-bottom:12px;font-weight:600">
+          ATENÇÃO: Esta ação excluirá TODOS os jogos e palpites existentes antes de importar os novos dados!
+        </p>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px">
+          Use esta função apenas para iniciar um novo bolão do zero com os dados oficiais da Copa do Mundo FIFA 2026.
+          Requer a variável de ambiente <code>FOOTBALL_DATA_API_KEY</code>.
+        </p>
+        <button class="btn btn-danger" onclick="syncWorldCup2026()" style="width:100%">
+          ⚠️ SINCRONIZAR COPA DO MUNDO 2026 (EXCLUI TUDO)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom nav (mobile) -->
+  <nav class="bottom-nav">
+    <button class="nav-btn" id="nav-palpites" onclick="switchTab('palpites',this)">
+      <span class="nav-icon">🎯</span>Meus Palpites
+    </button>
+    <button class="nav-btn" id="nav-ranking" onclick="switchTab('ranking',this)">
+      <span class="nav-icon">🏆</span>Ranking
+    </button>
+    <button class="nav-btn" id="nav-admin" onclick="switchTab('admin',this)">
+      <span class="nav-icon">⚙️</span>Admin
+    </button>
+  </nav>
+</div>
+
+<script type="module">
+import { showScreen, logout, startApp, verifyEmailToken } from './src/auth.js';
+import { loadMatches } from './src/matches.js';
+import { loadRanking } from './src/ranking.js';
+import { switchTab } from './src/navigation.js';
+import { buildGroupFilter, renderMatches, buildAdminList, syncResult, selectResult, savePrediction, saveScores, fetchFromAPI, syncWorldCup2026, loadPendingUsers, activateUser, activateAllPending } from './src/matches.js';
+import { currentUser } from './src/auth.js';
+
+// Expor funções globalmente para os handlers inline do HTML
+window.showScreen = showScreen;
+window.logout = logout;
+window.switchTab = switchTab;
+window.filterGroup = (g) => {
+  import('./src/matches.js').then(m => m.filterGroup(g));
+};
+window.syncResult = syncResult;
+window.selectResult = selectResult;
+window.savePrediction = savePrediction;
+window.saveScores = saveScores;
+window.fetchFromAPI = fetchFromAPI;
+window.syncWorldCup2026 = syncWorldCup2026;
+window.activateAllPending = activateAllPending;
+window.activateUser = activateUser;
+window.currentUser = currentUser;
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', async () => {
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
+  // Check ?verify= param
+  const params = new URLSearchParams(location.search);
+  const vToken = params.get('verify');
+  if (vToken) {
+    history.replaceState({}, '', '/');
+    await verifyEmailToken(vToken);
+    return;
+  }
+
+  // Check stored session
+  const token = localStorage.getItem('bolao_token');
+  if (token) {
+    try {
+      const res = await fetch('/api/users/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const user = await res.json();
+        Object.assign(currentUser, user);
+        await startApp();
+        return;
+      }
+    } catch (_) {}
+    localStorage.removeItem('bolao_token');
+  }
+
+  // Redirecionar para login se não autenticado
+  window.location.href = '/login.html';
+});
+</script>
+</body>
+</html>
