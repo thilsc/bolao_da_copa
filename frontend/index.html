@@ -1004,23 +1004,24 @@ async function startApp() {
   switchTab(initialTab, null);
 }
 
-  //const API_BASE_URL = "http://127.0.0.1:5000";
-  ///const API_BASE_URL = "http://localhost:5000";
-  //const API_BASE_URL = "http://44.217.175.223";
-  const API_BASE_URL = "http://localhost";
+const API_BASE_URL = (import.meta.env.APP_URL || "").replace(/\/+$/, "");
 
-  function apiFetch(url, opts = {}) {
-    const token = localStorage.getItem('bolao_token');
-    const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
-    return fetch(fullUrl, {
-      ...opts,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        ...(opts.headers || {})
-      }
-    });
-  }
+function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem("bolaotoken");
+
+  const fullUrl = String(url).startsWith("http")
+    ? String(url)
+    : `${API_BASE_URL}/${String(url).replace(/^\/+/, "")}`;
+
+  return fetch(fullUrl, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opts.headers || {})
+    }
+  });
+}
 
 // ── Matches ───────────────────────────────────────────────────────
 
