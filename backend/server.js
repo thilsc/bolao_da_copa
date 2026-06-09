@@ -41,6 +41,7 @@ if (process.env.JWT_SECRET.length < 32) {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const isHttps = process.env.APP_URL?.startsWith("https://");
 
 // Trust proxy — required on Replit (requests come through a reverse proxy)
 app.set('trust proxy', 1);
@@ -53,27 +54,23 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://api.football-data.org', 'http:', 'https:'],
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      connectSrc: ["'self'", "https://api.football-data.org", "http:", "https:"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"]
     }
   },
-  crossOriginEmbedderPolicy: true,
-  crossOriginOpenerPolicy: true,
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: isHttps ? { policy: "same-origin" } : false,
   crossOriginResourcePolicy: { policy: "same-site" },
-  dnsPrefetchControl: { allow: false },
-  frameguard: { action: 'deny' },
-  hidePoweredBy: true,
-  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-  ieNoOpen: true,
-  noSniff: true,
-  originAgentCluster: true,
-  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-  xssFilter: true
+  originAgentCluster: false,
+  hsts: isHttps ? {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  } : false
 }));
 
 // Rate limiting para prevenir ataques de força bruta e DDoS
@@ -124,7 +121,8 @@ app.use(hpp()); // Prevenir poluição de parâmetros HTTP
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3001',
-  'http://localhost:5000',  
+  'http://localhost:5000',
+  'http://44.217.175.223',
   'http://44.217.175.223:5000',
   'http://172.26.1.186:5000',
   process.env.APP_URL
@@ -201,7 +199,7 @@ db.exec(`
 // ── Email ─────────────────────────────────────────────────────────────────────
 function getAppUrl() {
   if (process.env.APP_URL) return process.env.APP_URL;
-  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+
   return 'http://localhost:5000';
 }
 

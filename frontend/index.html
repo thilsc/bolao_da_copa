@@ -1004,16 +1004,10 @@ async function startApp() {
   switchTab(initialTab, null);
 }
 
-const API_BASE_URL = (import.meta.env.APP_URL || "").replace(/\/+$/, "");
-
 function apiFetch(url, opts = {}) {
   const token = localStorage.getItem("bolaotoken");
 
-  const fullUrl = String(url).startsWith("http")
-    ? String(url)
-    : `${API_BASE_URL}/${String(url).replace(/^\/+/, "")}`;
-
-  return fetch(fullUrl, {
+  return fetch(url, {
     ...opts,
     headers: {
       "Content-Type": "application/json",
