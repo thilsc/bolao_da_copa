@@ -17,12 +17,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    rollupOptions: {
+    //comentando pq o app vai voltar a ser SPA
+    /*rollupOptions: {
       input: {
         main: './main.html',
         login: './login.html',
         verify: './verify.html',
       },
-    },
+    },*/
   },
 });
