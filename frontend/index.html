@@ -16,13 +16,6 @@
 <link rel="icon" type="image/svg+xml" href="/icon.svg">
 <!--link rel="stylesheet" href="/styles.css"-->
 
-<!-- Meta tag para forçar HTTPS em produção -->
-<!--meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests"-->
-
-<!-- Meta tag para forçar HTTP em produção -->
-<!--meta http-equiv="Content-Security-Policy" content="default-src 'self' http: 'unsafe-inline' 'unsafe-eval';"-->
-  
-
 <style>
 /* ── Reset & variables ──────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -788,7 +781,7 @@ div#pending-users-list {
   </nav>
 </div>
 
-<script type="module">
+<script>
 // ── State ────────────────────────────────────────────────────────
 let currentUser = null;
 let allMatches = [];
