@@ -1,34 +1,4 @@
 ```
-# Dependencies
-node_modules/
-
-# Build outputs
-dist/
-build/
-coverage/
-htmlcov/
-
-# Environment variables
-.env
-.env.local
-.env.*
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Logs
-*.log
-
-# Coverage
-.coverage
+# Database files
+*.db
 ```
